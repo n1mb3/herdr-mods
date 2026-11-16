@@ -13,10 +13,13 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import unicodedata
 
-LIMITE = 2  # conversas por pasta
+LIMITE = 2  # conversas por pasta no popup; o painel do herdr-app pede mais com --limite
+# O que já foi lido de cada .jsonl, pela data e tamanho: só os que mudaram são relidos.
+CACHE = os.path.join(tempfile.gettempdir(), "herdr-conversas-cache.json")
 COMANDO = "claude --dangerously-skip-permissions --resume {id}"
 WINDOWS = os.name == "nt"
 SEM_JANELA = 0x08000000 if WINDOWS else 0
@@ -75,10 +78,29 @@ def ler_conversa(caminho: str) -> "dict | None":
     }
 
 
-def coletar() -> list:
+def ler_cache() -> dict:
+    try:
+        with open(CACHE, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def gravar_cache(cache: dict) -> None:
+    try:
+        tmp = CACHE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cache, f)
+        os.replace(tmp, CACHE)
+    except OSError:
+        pass  # sem cache só fica mais lento
+
+
+def coletar(limite: int = LIMITE) -> list:
     """[{cwd, conversas: [...]}], pastas da conversa mais recente para a mais antiga."""
     raiz = pasta_projetos()
     grupos = {}
+    cache, novo = ler_cache(), {}
     try:
         projetos = os.listdir(raiz)
     except OSError:
@@ -92,18 +114,27 @@ def coletar() -> list:
         arquivos.sort(key=os.path.getmtime, reverse=True)
         achadas = []
         for arq in arquivos:
-            conversa = ler_conversa(arq)
+            try:
+                st = os.stat(arq)
+            except OSError:
+                continue
+            marca = [st.st_mtime, st.st_size]
+            guardado = cache.get(arq)
+            conversa = guardado["dados"] if guardado and guardado["marca"] == marca else ler_conversa(arq)
+            novo[arq] = {"marca": marca, "dados": conversa}
             if conversa:
                 achadas.append(conversa)
-            if len(achadas) == LIMITE:
+            if len(achadas) == limite:
                 break
         for c in achadas:
             grupos.setdefault(normalizar(c["cwd"]), {"cwd": c["cwd"], "conversas": []})["conversas"].append(c)
     lista = list(grupos.values())
     for g in lista:
         g["conversas"].sort(key=lambda c: c["quando"], reverse=True)
-        g["conversas"] = g["conversas"][:LIMITE]
+        g["conversas"] = g["conversas"][:limite]
     lista.sort(key=lambda g: g["conversas"][0]["quando"], reverse=True)
+    # O popup pede menos que o painel: guarda também o que o outro leu, menos arquivos apagados.
+    gravar_cache({k: v for k, v in {**cache, **novo}.items() if k in novo or os.path.exists(k)})
     return lista
 
 
@@ -361,6 +392,7 @@ if __name__ == "__main__":
     if "--listar" in sys.argv:  # diagnóstico fora do popup
         # ASCII com escapes \uXXXX: o stdout de um pipe no Windows é cp1252, e quem
         # lê (o mod do herdr-app) decodifica UTF-8; assim os acentos sobrevivem a qualquer codificação.
-        print(json.dumps(coletar(), indent=1))
+        limite = int(sys.argv[sys.argv.index("--limite") + 1]) if "--limite" in sys.argv else LIMITE
+        print(json.dumps(coletar(limite), indent=1))
         sys.exit(0)
     sys.exit(main())

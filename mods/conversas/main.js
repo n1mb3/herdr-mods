@@ -13,6 +13,8 @@ const SCRIPT = () => `${appHome()}/mods/conversas/conversas.py`;
 const PYTHON = () => (WINDOWS() ? "python" : "python3");
 const COMANDO = (id) => `claude --dangerously-skip-permissions --resume ${id}`;
 const ATUALIZA_MS = 30000;
+const POR_PAGINA = 2;   // conversas por página em cada pasta
+const LIMITE = 50;      // conversas por pasta pedidas ao coletor (as mais recentes)
 
 const norm = (p) => (p ?? "").replace(/[\\/]+$/, "").replace(/\//g, "\\").toLowerCase();
 const nome = (p) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
@@ -41,10 +43,24 @@ export default class Conversas extends View {
   init(_props, cx) {
     this.grupos = [];
     this.erro = null;
-    this.fechados = new Set();
+    // Pastas recolhidas e página de cada pasta: ficam guardadas entre aberturas.
+    let estado = {};
+    try { estado = JSON.parse(localStorage.getItem("estado") ?? "{}") ?? {}; } catch { estado = {}; }
+    this.fechados = new Set(Array.isArray(estado.fechados) ? estado.fechados : []);
+    this.paginas = estado.paginas && typeof estado.paginas === "object" ? estado.paginas : {};
     if (checking()) return;
     this.carregar(cx);
     cx.timer.every(ATUALIZA_MS, (cx) => this.carregar(cx));
+  }
+
+  salvar() {
+    localStorage.setItem("estado", JSON.stringify({ fechados: [...this.fechados], paginas: this.paginas }));
+  }
+
+  // Todas abertas ou todas fechadas, inclusive as que ainda não apareceram (chaves = pastas).
+  todas(abrir) {
+    this.fechados = abrir ? new Set() : new Set(this.grupos.map((g) => g.cwd));
+    this.salvar();
   }
 
   carregar(cx) {
@@ -52,7 +68,7 @@ export default class Conversas extends View {
     this.carregando = true;
     cx.spawn(async (cx) => {
       try {
-        const r = await exec(PYTHON(), [SCRIPT(), "--listar"], { timeout: 60000 });
+        const r = await exec(PYTHON(), [SCRIPT(), "--listar", "--limite", String(LIMITE)], { timeout: 60000 });
         if (r.code !== 0) throw new Error(r.stderr.trim() || `saiu com ${r.code}`);
         this.grupos = JSON.parse(r.stdout);
         this.erro = null;
@@ -62,6 +78,12 @@ export default class Conversas extends View {
       this.carregando = false;
       cx.notify();
     });
+  }
+
+  acao(t, id, dica, icone, fazer) {
+    return div().id(id).size(22).flex().items_center().justify_center().rounded(5).text_color(t.dim).cursor_pointer()
+      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(dica)
+      .on_click((_e, cx) => { fazer(); cx.notify(); }).child(svg(icone).size(12));
   }
 
   render(cx) {
@@ -90,6 +112,18 @@ export default class Conversas extends View {
 
     const grupo = (g) => {
       const aberto = !this.fechados.has(g.cwd);
+      const total = Math.max(1, Math.ceil(g.conversas.length / POR_PAGINA));
+      const pagina = Math.min(this.paginas[g.cwd] ?? 0, total - 1);
+      const ir = (d) => (_e, cx) => {
+        cx.stop_propagation();
+        this.paginas[g.cwd] = Math.max(0, Math.min(total - 1, pagina + d));
+        this.salvar();
+        cx.notify();
+      };
+      const seta = (id, texto, d, pode) => div().id(id).w(18).h(20).flex().items_center().justify_center().rounded(5)
+        .text_color(pode ? t.muted : t.border).when(pode, (el) => el.cursor_pointer().hover((s) => s.bg(t.background).text_color(t.foreground)))
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .when(pode, (el) => el.on_click(ir(d))).child(texto);
       return [
         // Cabeçalho da pasta em faixa própria (fundo, ícone, negrito) para separar os projetos.
         h_flex()
@@ -113,13 +147,19 @@ export default class Conversas extends View {
           .tooltip(g.cwd)
           .on_click((_e, cx) => {
             aberto ? this.fechados.add(g.cwd) : this.fechados.delete(g.cwd);
+            this.salvar();
             cx.notify();
           })
           .child(svg("mods/workspace-chrome/folder.svg").size(14).flex_none().text_color(t.accent))
           .child(div().flex_1().min_w(0).truncate().child(nome(g.cwd)))
+          // Paginação da pasta: ‹ 1/5 ›, só aberta e com mais de uma página.
+          .when(aberto && total > 1, (el) => el.child(h_flex().flex_none().gap(1).items_center().text_size(11).font_medium()
+            .child(seta(`cp-${g.cwd}`, "‹", -1, pagina > 0))
+            .child(div().text_color(t.muted).child(`${pagina + 1}/${total}`))
+            .child(seta(`cn-${g.cwd}`, "›", 1, pagina < total - 1))))
           .child(div().flex_none().text_size(10.5).font_medium().text_color(t.muted).child(String(g.conversas.length)))
           .child(svg(`mods/workspace-chrome/chevron-${aberto ? "down" : "right"}.svg`).size(11).flex_none().text_color(t.dim)),
-        ...(aberto ? g.conversas.map(linha) : []),
+        ...(aberto ? g.conversas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA).map(linha) : []),
       ];
     };
 
@@ -148,6 +188,8 @@ export default class Conversas extends View {
           .child(div().font_semibold().child("Conversas"))
           .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${total}`))
           .child(div().flex_1())
+          .child(this.acao(t, "cv-abrir", "Expandir todas", "mods/workspace-chrome/chevron-down.svg", () => this.todas(true)))
+          .child(this.acao(t, "cv-fechar", "Recolher todas", "mods/workspace-chrome/chevron-right.svg", () => this.todas(false)))
           .child(
             div()
               .id("cv-refresh")
