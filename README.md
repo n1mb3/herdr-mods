@@ -7,7 +7,9 @@ Mods para o [Herdr](https://herdr.dev), no app desktop (herdr-app) e no herdr de
 | `mods/conversas` | herdr-app | Painel **Conversas** à direita, junto de Files e Changes: as 2 últimas conversas do Claude Code de cada pasta, com título, hora e ID. Clique retoma a conversa; botão direito copia o comando. |
 | `mods/tabs-conversas` | herdr-app | Clone da barra de abas do Herdr com o botão **Conversas** ao lado de Files e Changes. |
 | `mods/menu-split` | herdr-app | Clone do menu de botão direito do terminal com um direcional de split (↑ ← → ↓), como num controle. |
-| `layouts/main-conversas.json` | herdr-app | Clone do layout `main` que usa os três mods acima. |
+| `mods/temas` | herdr-app | Janela **Temas**: usa, instala (de herdr.dev, GitHub ou um tema `.json`) e apaga layouts e temas de cor, e volta ao padrão. |
+| `mods/chrome-temas` | herdr-app | Clone do cabeçalho e do rodapé da barra lateral com o item **Temas** abaixo de Settings. |
+| `layouts/main-conversas.json` | herdr-app | Clone do layout `main` que usa os mods acima. |
 | `tui/` | herdr de terminal | Plugin `herdr-conversas`: popup com as mesmas conversas, aberto por atalho. |
 
 Retomar uma conversa roda, na pasta onde ela aconteceu:
@@ -51,6 +53,29 @@ description = "conversas do Claude"
 
 Depois, `herdr config check` e `herdr server reload-config`. No popup: `↑` `↓` escolhem,
 `Enter` retoma, `c` copia o comando, `r` atualiza, `Esc` fecha.
+
+## Temas
+
+Abra pelo item **Temas** da barra lateral, abaixo de Settings, ou por `ctrl-shift-y` (no
+`keys.json` do app: `"ctrl-shift-y": "mod.open:temas"` em `global`, que vale em qualquer layout).
+A tela de Settings do Herdr não aceita seção nova: ela é regravada pelo app a cada abertura.
+
+- **Usar**: troca de layout; os chips de cor aplicam o tema ao layout em uso.
+- **Instalar**: cole `herdr.dev/layouts/<dono>/<nome>`, um repositório do GitHub ou a URL de um
+  tema `.json` e clique em Conferir. O Temas baixa, mostra o que vem (layout, mods, cores,
+  tamanho) e avisa se o código roda programas, acessa a rede ou lê arquivos fora da pasta. Nada
+  é copiado antes do Instalar. Nome que já existe é recusado.
+- **Apagar**: só aparece no que o Temas instalou, e remove exatamente os arquivos que ele
+  copiou, inclusive os atalhos do layout no `keys.json`. Layouts e cores do Herdr e os seus
+  (como `main-conversas`) nunca são apagados por ali.
+- **Voltar ao padrão**: layout `main-conversas` (ou `main`) e as cores graphite e paper.
+
+O registro do que foi instalado fica em `~/.config/herdr-app/.temas/registro.json`, e o motor é
+o `mods/temas/temas.py` (`listar`, `inspecionar`, `instalar`, `remover`).
+
+**Tirar o Temas do app:** no `layouts/main-conversas.json`, volte os blocos `brand` e
+`sidebar-footer` para `"mod": "workspace-chrome"` e o rodapé para `{"px": 69}`; apague
+`mods/temas` e `mods/chrome-temas` em `~/.config/herdr-app` e o `ctrl-shift-y` do `keys.json`.
 
 ## Como funciona
 
