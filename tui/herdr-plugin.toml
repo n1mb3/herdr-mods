@@ -1,0 +1,27 @@
+# Plugin herdr-conversas: popup com as últimas conversas do Claude Code de
+# cada pasta (título, data e ID); Enter retoma a escolhida numa aba nova.
+# Instalação local: herdr plugin link <esta pasta>
+# Atalho: [[keys.command]] com type = "plugin_action" no config.toml do herdr
+# (o herdr 0.9.x não deixa plugin criar seção na barra lateral nem item de menu).
+
+id = "herdr-conversas"
+name = "Conversas do Claude"
+version = "0.1.0"
+min_herdr_version = "0.8.0"
+description = "Popup listing the last Claude Code conversations of each folder, with their IDs; Enter resumes one in a new tab"
+platforms = ["macos", "linux", "windows"]
+
+# 90% da tela: o ID completo (36 colunas) mais o título precisam de largura.
+[[panes]]
+id = "lista"
+title = "Conversas do Claude"
+placement = "popup"
+width = "90%"
+height = "80%"
+command = ["python3", "conversas.py"]
+
+[[actions]]
+id = "abrir"
+title = "Open Claude conversations"
+contexts = ["global", "workspace", "tab", "pane"]
+command = ["python3", "abrir.py"]
