@@ -12,6 +12,27 @@ Mods para o [Herdr](https://herdr.dev), no app desktop (herdr-app) e no herdr de
 | `layouts/main-conversas.json` | herdr-app | Clone do layout `main` que usa os mods acima. |
 | `tui/` | herdr de terminal | Plugin `herdr-conversas`: popup com as mesmas conversas, aberto por atalho. |
 
+## Como fica
+
+**Painel Conversas** no herdr-app, ao lado de Files e Changes: cada pasta mostra 2 conversas por
+página (`‹ 1/5 ›`), e as setas do cabeçalho expandem ou recolhem todas.
+
+<img src="imagens/painel-conversas.png" alt="Painel Conversas no herdr-app" width="372">
+
+**Menu do botão direito** no terminal, com o direcional de split: a seta divide para aquele lado.
+
+<img src="imagens/menu-split.png" alt="Menu de split com direcional" width="221">
+
+**Janela Temas**, aberta pelo item Temas da barra lateral ou por `ctrl-shift-y`:
+
+<img src="imagens/temas.png" alt="Janela Temas" width="641">
+
+**Popup do herdr de terminal** (`prefix+m`), com a pasta, a data, o título e o ID de cada conversa:
+
+![Popup de conversas no herdr de terminal](imagens/popup-tui.png)
+
+As pastas e conversas dos prints são fictícias.
+
 Retomar uma conversa roda, na pasta onde ela aconteceu:
 
 ```sh
