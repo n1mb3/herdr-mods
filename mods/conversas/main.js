@@ -1,7 +1,7 @@
 // Últimas conversas do Claude Code de cada pasta, abaixo de Agents.
 // Clique retoma a conversa numa aba nova da pasta; botão direito copia o comando.
-// A coleta é o conversas.py do plugin do herdr de terminal (tui/ no repositório
-// herdr-mods); o instalar.py copia ele para esta pasta.
+// A coleta é o conversas.py desta pasta, que o plugin do herdr de terminal
+// (tui/ no repositório herdr-mods) também usa.
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";

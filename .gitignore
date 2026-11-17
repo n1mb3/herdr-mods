@@ -2,6 +2,4 @@
 gpui-kit.d.ts
 jsconfig.json
 *.error
-# cópia feita pelo instalar.py; a fonte é tui/conversas.py
-mods/conversas/conversas.py
 __pycache__/

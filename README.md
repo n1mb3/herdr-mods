@@ -51,8 +51,8 @@ cd herdr-mods
 python3 instalar.py
 ```
 
-O `instalar.py` copia `mods/` e `layouts/` para `~/.config/herdr-app` (ou `$HERDR_APP_HOME`),
-copia `tui/conversas.py` para `mods/conversas/` e liga o plugin `tui/` no herdr de terminal com
+O `instalar.py` copia `mods/` e `layouts/` para `~/.config/herdr-app` (ou `$HERDR_APP_HOME`)
+e liga o plugin `tui/` no herdr de terminal com
 `herdr plugin link`. Depois de um `git pull`, rode de novo.
 
 ### No herdr-app
@@ -102,7 +102,8 @@ o `mods/temas/temas.py` (`listar`, `inspecionar`, `instalar`, `remover`).
 
 - As conversas vêm de `~/.claude/projects/<pasta>/<id>.jsonl` (um arquivo por conversa; o nome é
   o ID). O título é o `aiTitle` que o Claude Code grava; sem ele, o primeiro pedido.
-- `tui/conversas.py --listar` imprime a lista em JSON; o mod do app chama esse modo a cada 30 s.
+- `mods/conversas/conversas.py --listar` imprime a lista em JSON; o mod do app chama esse modo a
+  cada 30 s. O popup do herdr de terminal é o mesmo script, sem `--listar`.
   O JSON sai com escapes `\uXXXX` porque o stdout de um pipe no Windows é cp1252.
 - O herdr-app só divide painéis para a direita e para baixo. **Split left** e **Split up** dividem
   para o outro lado e trocam os dois painéis de lugar.

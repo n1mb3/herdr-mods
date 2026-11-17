@@ -18,7 +18,8 @@ title = "Conversas do Claude"
 placement = "popup"
 width = "90%"
 height = "80%"
-command = ["python3", "conversas.py"]
+# O script mora no mod do herdr-app, que é quem a galeria do herdr.dev copia.
+command = ["python3", "../mods/conversas/conversas.py"]
 
 [[actions]]
 id = "abrir"

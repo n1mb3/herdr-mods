@@ -2,8 +2,7 @@
 """Instala os mods no herdr-app e o plugin no herdr de terminal.
 
 - Copia mods/ e layouts/ para a pasta do app (~/.config/herdr-app, ou
-  $HERDR_APP_HOME) e o tui/conversas.py para mods/conversas/, que é quem
-  lista as conversas para o mod.
+  $HERDR_APP_HOME).
 - Liga o plugin tui/ no herdr de terminal (herdr plugin link), se ele existir.
 
 Rode de novo depois de cada git pull. Não mexe no keys nem no config.toml.
@@ -34,7 +33,6 @@ def main() -> int:
         return 1
     copiar_pasta(os.path.join(RAIZ, "mods"), os.path.join(APP, "mods"))
     copiar_pasta(os.path.join(RAIZ, "layouts"), os.path.join(APP, "layouts"))
-    shutil.copy2(os.path.join(RAIZ, "tui", "conversas.py"), os.path.join(APP, "mods", "conversas", "conversas.py"))
     print(f"mods e layout copiados para {APP}")
 
     herdr = shutil.which("herdr")

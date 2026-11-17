@@ -1,0 +1,144 @@
+# Main + Conversas
+
+Herdr's main window with your Claude Code history beside the terminals. A
+**Conversas** panel, next to Files and Changes, lists the latest conversations
+of every folder with their title, time and ID; a click resumes one in that
+folder. Right-clicking a terminal gives a four-way split pad, and a **Temas**
+dialog under Settings uses, installs and deletes layouts and color themes.
+
+![Main + Conversas](preview.png)
+
+This file is the brief: enough to build Main + Conversas from an empty folder.
+The files next to it are one build of it. If they don't work on your Herdr, or
+you want it different, build it again from here. The UI text is in Portuguese
+(Conversas, Expandir todas, Temas, Voltar ao padrão).
+
+## What you see
+
+Herdr's `main` layout (0.1.16), unchanged except for four things:
+
+1. **The Conversas panel**, on the right of the terminals, 368px wide, in the
+   same card style as Files and Changes (10px radius, 1px border).
+   - Header, 42px: "Conversas", a small boxed count of all conversations, then
+     three 22px icon buttons: Expandir todas (chevron down), Recolher todas
+     (chevron right) and ↻ (refresh, "…" while loading).
+   - One band per folder, 30px, raised background, 1px border, 7px radius:
+     a folder icon in the accent color, the folder's name in semibold 12.5px,
+     then `‹ 1/3 ›` when it has more than one page, the folder's conversation
+     count and a chevron (down open, right closed). Hovering shows the full path.
+   - Under an open band, two conversations per page: the title on the left, the
+     time on the right (`12:34` today, `16/11` before) and the conversation ID
+     under it in 10.5px dim text.
+   - Folders are ordered by their newest conversation.
+2. **A Conversas button** in the tab bar, after Files and Changes, with a chat
+   bubble icon. It toggles the panel like the other two.
+3. **The split pad** at the top of the terminal right-click menu (220×290
+   overlay): "Split" in 11px, then four 30px keys with arrows (up, left, right,
+   down) around a dim square that stands for the current pane, like a game
+   controller's D-pad. Below a divider, Herdr's usual items (Zoom, Send
+   right-clicks to pane, Close pane).
+4. **Temas** in the sidebar footer, a row under Settings with a palette icon
+   and its shortcut on the right (`ctrl-shift-y` when bound). The footer grows
+   from 69px to 97px to fit it. It opens a 640×600 dialog:
+   - **Layouts**: one 40px row per layout with a tag (Herdr, instalado, seu),
+     "em uso" on the current one and Usar on the others; Apagar on the ones
+     Temas installed.
+   - **Cores do layout em uso**: round chips, one per color theme.
+   - **Instalar**: a field for a `herdr.dev/layouts/<owner>/<name>` link, a
+     GitHub repo or a theme `.json` URL, and Conferir.
+   - Footer: Voltar ao padrão and a status line.
+
+## How it behaves
+
+- **Clicking a conversation** resumes it with
+  `claude --dangerously-skip-permissions --resume <id>`, in a new tab of the
+  space already showing that folder (named after the title, cut to 24
+  characters), or in a new space at that folder if there is none.
+- **Right-clicking a conversation** copies that command and shows a 3s toast.
+- **Clicking a folder band** opens or closes it; `‹` and `›` page through its
+  conversations without toggling it. Expandir todas and Recolher todas apply
+  to every folder. Which folders are closed and the page of each are kept
+  between sessions.
+- The list refreshes every 30 seconds and on ↻.
+- **Split pad**: right and down split as Herdr does. Up and left split down or
+  right, then swap the new pane with the original, so the new one lands above
+  or on the left, and focus it. The menu closes after the swap.
+- **Temas**: Usar switches layout; a chip applies that theme to the current
+  layout. Conferir downloads the link into a cache and shows what it brings
+  (layout, mods, colors, size), warns if its code runs programs, reaches the
+  network or reads files outside its folder, and refuses names already taken.
+  Nothing is copied until Instalar. Apagar asks for a second click and removes
+  exactly the files it installed, keys included. Voltar ao padrão switches to
+  this layout (or `main`) with the graphite and paper themes. Esc closes it.
+
+## Built from
+
+- **The layout file** (`layouts/main-conversas.json`): a clone of `main` with
+  `"titlebar": "none"` and `"terminal_menu": "menu-split"`. The sidebar's
+  `brand` and `sidebar-footer` blocks show `chrome-temas` (the footer with
+  `props: { footer: true }`, `size: { px: 97 }`); the `tabs` block shows
+  `tabs-conversas`; the `panel` column (`px: 368`, hidden at start) holds a
+  `stack` named `panel-body` with three blocks: `files`, `changes` and
+  `conversas`. The status bar stays `workspace-status`.
+- **`mods/conversas/`**: the panel. It runs
+  `python conversas.py --listar --limite 50` (`python3` off Windows) with
+  `exec` and renders the JSON. `conversas.py` reads
+  `~/.claude/projects/<folder>/<id>.jsonl` (or `$CLAUDE_CONFIG_DIR/projects`):
+  the file name is the ID, the title is the session's `customTitle` (else its
+  `aiTitle`, else the first prompt), the folder is the first user
+  message's `cwd`, the time is the file's mtime. It caches each file by mtime
+  and size in the temp folder. Without `--listar` it is a terminal popup.
+  State lives in `localStorage` key `estado`: `{fechados, paginas}`.
+  Commands: `tab.new`, `space.new`; data: `spaces()`, `panes()`.
+- **`mods/tabs-conversas/`**: a clone of the shipped `tabs` that always adds
+  `conversas` to the panel buttons, with its own copies of the window icons.
+- **`mods/menu-split/`**: a clone of the shipped `menu` with the pad. Commands:
+  `pane.split` (right or down only), `pane.swap {pane, target}`, `pane.focus`.
+  The new pane is the one in `panes()` that was not there before the split.
+- **`mods/chrome-temas/`**: a clone of `workspace-chrome` with the Temas row,
+  which runs `mod.open {name: "temas"}` and reads its shortcut from `keys()`.
+- **`mods/temas/`**: the dialog (`main.js`) and its engine `temas.py`
+  (`listar`, `inspecionar <link>`, `instalar <id>`, `remover <id>`), run with
+  `exec`. Installs are recorded in `~/.config/herdr-app/.temas/registro.json`.
+- **Art**: `conversas.svg` (chat bubble), four arrow SVGs, `palette.svg`; the
+  rest reuses `mods/workspace-chrome/` icons.
+
+## Watch out
+
+- **What runs**: `conversas` runs Python and reads `~/.claude/projects`.
+  `temas` runs Python and `git clone`, downloads from GitHub and herdr.dev, and
+  writes into `~/.config/herdr-app` (layouts, mods, themes, `keys.json`).
+  Both need Python 3 on PATH (`python` on Windows, `python3` elsewhere).
+- Resuming uses `--dangerously-skip-permissions`. Change `COMANDO` and the
+  `argv` in `retomar` in `mods/conversas/main.js` if you don't want that.
+- `ctrl-shift-y` is not bound by the layout. Add
+  `"ctrl-shift-y": "mod.open:temas"` to `global` in your `keys.json`; the
+  Temas row shows whatever key you bind.
+- `tabs-conversas`, `menu-split` and `chrome-temas` are clones of Herdr
+  0.1.16 mods: Herdr updates the originals, not the clones.
+- Settings itself can't take a new section (the app rewrites `frame/` on every
+  start), hence the sidebar row.
+- `pane.split` only goes right and down; up and left are split plus swap.
+  Closing the overlay before the swap cancels it.
+- `layout.show` of the panel from the command line can be overridden by the
+  panel each space remembers; pick Conversas in the tab bar instead.
+- Large histories: the first read of every `.jsonl` takes seconds (tens of MB
+  files); the cache makes later reads fast. Only the 50 newest per folder load.
+- Launching Herdr from inside a Claude Code session passes `NO_COLOR` and
+  `CLAUDE_CODE_CHILD_SESSION` to the app and its core: colors go and the
+  resumed conversations stop being recorded. Start Herdr from the OS launcher.
+
+## Done when
+
+- The Conversas button opens the panel, and each folder with Claude Code
+  history shows its newest two conversations with title, time and ID.
+- `‹ ›` pages a folder, Expandir/Recolher todas open and close every band, and
+  both survive closing and reopening Herdr.
+- Clicking a conversation opens a tab running `claude … --resume <id>` in its
+  folder; right-click copies the command.
+- Each of the four pad arrows splits the right-clicked pane to that side, with
+  the new pane focused.
+- The Temas row opens the dialog; Usar switches layout, a chip changes colors,
+  Conferir on a gallery link shows its contents before anything is copied.
+- `herdr-app check` passes for `conversas`, `tabs-conversas`, `menu-split`,
+  `chrome-temas` and `temas`, and switching to `main` and back works.
