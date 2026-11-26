@@ -5,12 +5,32 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle, InputState, Input } from "gpui-base";
-import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay } from "herdr";
+import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay, machines, shared, readTextFile } from "herdr";
 
 // Mesmo main.js no Windows e no Linux: só o Python muda.
 const WINDOWS = () => window()?.platform === "windows";
 const SCRIPT = () => `${appHome()}/mods/conversas/conversas.py`;
 const PYTHON = () => (WINDOWS() ? "python" : "python3");
+
+// Roda o conversas.py neste computador (maquina null) ou noutra máquina do herdr. Na outra,
+// o script vai como texto em `python3 -c`, pelo herdr-core dela: não depende de onde (nem se)
+// o herdr-mods está instalado lá, só do Python e das conversas em ~/.claude/projects.
+let codigo = null;
+async function rodar(args, maquina, timeout) {
+  if (!maquina) return exec(PYTHON(), [SCRIPT(), ...args], { timeout });
+  codigo ??= await readTextFile(SCRIPT());
+  if (!codigo) throw new Error(`Não achei ${SCRIPT()}`);
+  try {
+    return await exec("python3", ["-c", codigo, ...args], { on: maquina, timeout });
+  } catch {
+    return exec("python", ["-c", codigo, ...args], { on: maquina, timeout }); // máquina Windows
+  }
+}
+
+// Nome exibido de cada máquina, o mesmo do spaces-icones: o dado à mão (shared "machine.names",
+// "" para este computador), senão a remota com inicial maiúscula e esta pelo sistema.
+const PLATAFORMA = { windows: "Windows", macos: "Mac", linux: "Linux" };
+const nomeMaquina = (m) => (shared("machine.names") ?? {})[m ?? ""] || (m ? m[0].toUpperCase() + m.slice(1) : PLATAFORMA[window()?.platform] ?? "Este computador");
 const COMANDO = (id) => `claude --dangerously-skip-permissions --resume ${id}`;
 const ATUALIZA_MS = 30000;
 const POR_PAGINA = 2;   // conversas por página em cada pasta
@@ -34,16 +54,16 @@ function quando(seg) {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// Aba nova no space que já está nessa pasta; senão, um space novo nela.
-function retomar(c) {
+// Aba nova no space que já está nessa pasta, na máquina da conversa; senão, um space novo nela lá.
+function retomar(c, maquina) {
   const argv = ["claude", "--dangerously-skip-permissions", "--resume", c.id];
   const alvo = norm(c.cwd);
-  const todos = spaces();
-  const aba = panes().find((p) => norm(p.cwd) === alvo)?.tab;
+  const todos = spaces().filter((s) => (s.machine ?? null) === (maquina ?? null));
+  const aba = panes().find((p) => norm(p.cwd) === alvo && todos.some((s) => s.tabs.some((t) => t.id === p.tab)))?.tab;
   const porPainel = aba && todos.find((s) => s.tabs.some((t) => t.id === aba))?.id;
   const space = porPainel ?? todos.find((s) => norm(s.folder) === alvo)?.id;
   if (space) run("tab.new", { space, folder: c.cwd, argv, name: c.titulo.slice(0, 24) });
-  else run("space.new", { folder: c.cwd, argv });
+  else run("space.new", { folder: c.cwd, argv, ...(maquina ? { machine: maquina } : {}) });
 }
 
 // Hora de um timestamp ISO das falas, no mesmo formato da lista.
@@ -75,13 +95,26 @@ export default class Conversas extends View {
     try { estado = JSON.parse(localStorage.getItem("estado") ?? "{}") ?? {}; } catch { estado = {}; }
     this.fechados = new Set(Array.isArray(estado.fechados) ? estado.fechados : []);
     this.paginas = estado.paginas && typeof estado.paginas === "object" ? estado.paginas : {};
+    // De qual máquina são as conversas mostradas (null: este computador); fica guardada também.
+    this.maquina = typeof estado.maquina === "string" ? estado.maquina : null;
+    this.vez = 0; // cada leitura leva um número: a resposta de uma máquina antiga é descartada
     if (checking()) return;
     this.carregar(cx);
     cx.timer.every(ATUALIZA_MS, (cx) => this.carregar(cx));
   }
 
   salvar() {
-    localStorage.setItem("estado", JSON.stringify({ fechados: [...this.fechados], paginas: this.paginas }));
+    localStorage.setItem("estado", JSON.stringify({ fechados: [...this.fechados], paginas: this.paginas, maquina: this.maquina }));
+  }
+
+  trocarMaquina(m, cx) {
+    if ((m ?? null) === this.maquina) return;
+    this.maquina = m ?? null;
+    this.grupos = [];
+    this.erro = null;
+    this.editando = null;
+    this.salvar();
+    this.carregar(cx);
   }
 
   // Todas abertas ou todas fechadas, inclusive as que ainda não apareceram (chaves = pastas).
@@ -91,17 +124,21 @@ export default class Conversas extends View {
   }
 
   carregar(cx) {
-    if (this.carregando) return;
+    const vez = ++this.vez, maquina = this.maquina;
     this.carregando = true;
+    cx.notify();
     cx.spawn(async (cx) => {
+      let grupos = null, erro = null;
       try {
-        const r = await exec(PYTHON(), [SCRIPT(), "--listar", "--limite", String(LIMITE)], { timeout: 60000 });
+        const r = await rodar(["--listar", "--limite", String(LIMITE)], maquina, 60000);
         if (r.code !== 0) throw new Error(r.stderr.trim() || `saiu com ${r.code}`);
-        this.grupos = JSON.parse(r.stdout);
-        this.erro = null;
+        grupos = JSON.parse(r.stdout);
       } catch (e) {
-        this.erro = String(e?.message ?? e);
+        erro = maquina ? `${nomeMaquina(maquina)}: ${e?.message ?? e}` : String(e?.message ?? e);
       }
+      if (vez !== this.vez) return; // trocou de máquina ou releu no meio: vale a leitura mais nova
+      if (grupos) this.grupos = grupos;
+      this.erro = erro;
       this.carregando = false;
       cx.notify();
     });
@@ -124,7 +161,7 @@ export default class Conversas extends View {
     c.titulo = novo;
     cx.notify();
     cx.spawn(async (cx) => {
-      const r = await exec(PYTHON(), [SCRIPT(), "--renomear", id, novo], { timeout: 30000 });
+      const r = await rodar(["--renomear", id, novo], this.maquina, 30000).catch((e) => ({ code: 1, stderr: String(e?.message ?? e) }));
       if (r.code !== 0) {
         c.titulo = antigo;
         notify({ title: "Não deu para renomear", body: r.stderr.trim() || "Conversa não encontrada.", level: "error", timeout: 5000 });
@@ -136,7 +173,7 @@ export default class Conversas extends View {
   lerFalas(cx) {
     cx.spawn(async (cx) => {
       try {
-        const r = await exec(PYTHON(), [SCRIPT(), "--ultimas", props().conversa.id], { timeout: 30000 });
+        const r = await rodar(["--ultimas", props().conversa.id], props().conversa.maquina ?? null, 30000);
         if (r.code !== 0) throw new Error(r.stderr.trim() || `saiu com ${r.code}`);
         this.falas = JSON.parse(r.stdout);
         // Abre no fim, que é a parte mais recente.
@@ -172,7 +209,7 @@ export default class Conversas extends View {
       .child(h_flex().px(18).pt(14).pb(10).gap(10).items_center().border_b(1).border_color(t.border)
         .child(v_flex().flex_1().min_w(0).gap(2)
           .child(div().truncate().text_size(14).font_semibold().child(c.titulo))
-          .child(div().truncate().text_size(11).text_color(t.dim).child(`${c.pasta} · ${c.id}`)))
+          .child(div().truncate().text_size(11).text_color(t.dim).child(`${c.maquina ? `${nomeMaquina(c.maquina)} · ` : ""}${c.pasta} · ${c.id}`)))
         .child(div().text_size(11).text_color(t.dim).child("Esc"))
         .child(this.acao(t, "cv-modal-fechar", "Fechar", "mods/workspace-chrome/x.svg", () => closeOverlay(props().overlay))))
       .when(Boolean(this.erro), (el) => el.child(aviso(this.erro, t.blocked)))
@@ -199,7 +236,7 @@ export default class Conversas extends View {
       .on_click((_e, cx) => {
         cx.stop_propagation();
         openOverlay({ mod: "conversas", kind: "dialog", width: 720, height: 620, // Só o nome da pasta: as props do overlay perdem as barras invertidas do caminho.
-          props: { conversa: { id: c.id, titulo: c.titulo, pasta: nome(c.cwd) } } });
+          props: { conversa: { id: c.id, titulo: c.titulo, pasta: nome(c.cwd), maquina: this.maquina } } });
       })
       .child(svg("mods/workspace-chrome/file-text.svg").size(13));
     // Lápis: troca o título por um campo; Enter grava, Esc ou clicar fora desiste.
@@ -226,7 +263,7 @@ export default class Conversas extends View {
         // Editando o nome, a linha não retoma a conversa nem mostra a dica.
         .when(this.editando !== c.id, (el) => el
           .tooltip(`Clique: retomar · botão direito: copiar\n${COMANDO(c.id)}`)
-          .on_click(() => retomar(c)))
+          .on_click(() => retomar(c, this.maquina)))
         .on_mouse_down("right", (_e, cx) => {
           cx.stop_propagation();
           cx.write_to_clipboard(COMANDO(c.id));
@@ -306,6 +343,7 @@ export default class Conversas extends View {
 
     // Painel lateral direito, no mesmo cartão de Files e Changes.
     const total = visiveis.reduce((n, g) => n + g.conversas.length, 0);
+    const maquinas = machines();
     return v_flex()
       .id("conversas")
       .size_full()
@@ -343,6 +381,20 @@ export default class Conversas extends View {
               .child(this.carregando ? "…" : "↻"),
           ),
       )
+      // Com mais de uma máquina no herdr, um seletor troca de qual delas são as conversas.
+      .when(maquinas.length > 1, (el) => el.child(h_flex().flex_none().px(10).pt(8).gap(4)
+        .children(maquinas.map((m) => {
+          const on = (m.name ?? null) === this.maquina;
+          const fora = m.layout === "unavailable";
+          return h_flex().id(`cvm-${m.name ?? "local"}`).flex_1().min_w(0).h(26).gap(6).px(8).items_center().justify_center().rounded(6)
+            .border_1().border_color(on ? t.accent : t.border).bg(on ? t.raised : t.background)
+            .text_size(12).text_color(on ? t.foreground : fora ? t.dim : t.muted)
+            .when(!on, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)))
+            .when(fora, (el) => el.tooltip(`${nomeMaquina(m.name)} está fora do ar`))
+            .on_click((_e, cx) => this.trocarMaquina(m.name, cx))
+            .child(svg(`mods/workspace-chrome/${m.name ? "server" : "monitor"}.svg`).size(12).flex_none())
+            .child(div().truncate().child(nomeMaquina(m.name)));
+        }))))
       // Esc no campo limpa a pesquisa.
       .child(h_flex().flex_none().px(10).py(8).border_b(1).border_color(t.border)
         .on_key_down((e, cx) => { if (e.key === "escape" && this.filtro) { this.busca.set_value(""); this.filtro = ""; cx.stop_propagation(); cx.notify(); } })

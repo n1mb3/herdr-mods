@@ -4,7 +4,7 @@ Mods para o [Herdr](https://herdr.dev), no app desktop (herdr-app) e no herdr de
 
 | Peça | Onde | O que faz |
 |---|---|---|
-| `mods/conversas` | herdr-app | Painel **Conversas** à direita, junto de Files e Changes: as 2 últimas conversas do Claude Code de cada pasta, com título, hora e ID, e o tamanho em disco de cada pasta. Clique retoma a conversa; botão direito copia o comando; o ícone de página abre um modal com as últimas falas; o lápis renomeia a conversa; o campo do topo pesquisa por título, pasta ou ID. |
+| `mods/conversas` | herdr-app | Painel **Conversas** à direita, junto de Files e Changes: as 2 últimas conversas do Claude Code de cada pasta, com título, hora e ID, e o tamanho em disco de cada pasta. Clique retoma a conversa; botão direito copia o comando; o ícone de página abre um modal com as últimas falas; o lápis renomeia a conversa; o campo do topo pesquisa por título, pasta ou ID; com mais de um computador no Herdr, botões trocam para as conversas do outro. |
 | `mods/tabs-conversas` | herdr-app | Clone da barra de abas do Herdr com o botão **Conversas** ao lado de Files e Changes. |
 | `mods/menu-split` | herdr-app | Clone do menu de botão direito do terminal com um direcional de split (↑ ← → ↓), como num controle. |
 | `mods/temas` | herdr-app | Janela **Temas**: usa, instala (de herdr.dev, GitHub ou um tema `.json`) e apaga layouts e temas de cor, e volta ao padrão. |
@@ -111,6 +111,9 @@ o `mods/temas/temas.py` (`listar`, `inspecionar`, `instalar`, `remover`).
 - `conversas.py --ultimas <id>` devolve as 12 últimas falas de texto da conversa (pedidos e
   respostas, sem ferramentas nem pensamento), lendo o `.jsonl` de trás para frente; o modal
   do ícone de página chama esse modo.
+- Nas conversas de outra máquina, o painel manda o próprio `conversas.py` para lá como
+  `python3 -c <script>` pelo herdr-core dela (`exec` com `on`): basta o Python 3 lá, sem
+  instalar o herdr-mods. Retomar abre a aba num espaço daquela máquina.
 - `conversas.py --renomear <id> <nome>` grava o nome como o `/rename` do Claude Code: uma linha
   `{"type":"custom-title",…}` no fim do `.jsonl`, que o `claude --resume` também mostra.
 - O herdr-app só divide painéis para a direita e para baixo. **Split left** e **Split up** dividem

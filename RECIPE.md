@@ -177,6 +177,17 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
 - The page icon opens a 720×620 dialog with that conversation's title, folder
   and ID, and its last turns (Você on a raised card, Claude on the plain one,
   each with its time), scrolled to the newest. Esc or × closes it.
+- With more than one machine in Herdr (`machines()`), a row of 26px buttons
+  over the search field, one per machine (monitor icon for this one, server
+  for the others, named like `spaces-icones`: `machine.names`, else the
+  system or the capitalized name), picks whose conversations are shown; the
+  choice is kept in `estado.maquina`. On another machine the panel reads
+  `conversas.py` with `readTextFile` and runs it there as
+  `python3 -c <script> …` through `exec(..., { on: machine })`, so the
+  repository needn't be installed there, only Python 3. Listing, the dialog
+  and renaming all go to that machine; resuming opens the tab in a space of
+  that machine on the same folder, else a new space there (`space.new
+  {machine}`). A slow answer from the previous machine is dropped.
 - The search field under the header (28px, "Pesquisar por título, pasta ou ID")
   filters on every key: each word, without case or accents, must appear in the
   title, the folder name or the ID. Matching folders open with all their hits
