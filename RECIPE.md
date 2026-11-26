@@ -126,6 +126,12 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
   Commands: `tab.new`, `space.new`; data: `spaces()`, `panes()`.
 - **`mods/tabs-conversas/`**: a clone of the shipped `tabs` that always adds
   `conversas` to the panel buttons, with its own copies of the window icons.
+  It also listens on `nextCommand()` for `colar`, Ctrl+V's Windows fix (it
+  lives there because `<mod>.<command>` reaches shown mods only, and the tab
+  bar always shows): with text in the clipboard (`cx.read_from_clipboard()`)
+  or a terminal on another machine it runs `terminal.paste_image`; in a local
+  terminal holding only an image it sends Alt+V (`hc keys <t> alt+v`), the key
+  Claude Code on Windows reads clipboard images with.
 - **`mods/menu-split/`**: a clone of the shipped `menu` with the pad. Commands:
   `pane.split` (right or down only), `pane.swap {pane, target}`, `pane.focus`.
   The new pane is the one in `panes()` that was not there before the split.
@@ -151,6 +157,9 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
 - `ctrl-shift-y` is not bound by the layout. Add
   `"ctrl-shift-y": "mod.open:temas"` to `global` in your `keys.json`; the
   Temas row shows whatever key you bind.
+- On Windows, Ctrl+V pastes an image only after binding
+  `"ctrl-v": "tabs-conversas.colar"` in the `terminal` section of
+  `keys.json` (the layout can't bind keys). Linux and macOS don't need it.
 - `tabs-conversas`, `menu-split` and `chrome-temas` are clones of Herdr
   0.1.16 mods, `spaces-icones` and `agents-icones` of 0.1.18: Herdr updates
   the originals, not the clones.

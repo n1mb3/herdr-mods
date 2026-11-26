@@ -63,6 +63,18 @@ e liga o plugin `tui/` no herdr de terminal com
 Troque para o layout **main-conversas** (`ctrl-shift-l` alterna os layouts, ou
 `herdr-app do layout.switch --name main-conversas`).
 
+**Ctrl+V com imagem no Windows:** o `terminal.paste_image` do Herdr no Windows só cola texto, e
+o Claude Code no Windows lê a imagem do clipboard pelo Alt+V. Para o Ctrl+V colar imagem
+também, troque no `keys.json` do app, seção `terminal`:
+
+```json
+"ctrl-v": "tabs-conversas.colar"
+```
+
+Com texto no clipboard (ou num terminal de outra máquina) ele faz o mesmo de antes; num
+terminal local com só uma imagem, manda Alt+V ao programa. No Linux e no Mac não precisa: lá o
+Ctrl+V já vai ao programa.
+
 ### No herdr de terminal
 
 O atalho fica no `config.toml` do herdr (`herdr --help` mostra o caminho):

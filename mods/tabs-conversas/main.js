@@ -1,6 +1,17 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, ScrollHandle } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings } from "herdr";
+import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings, nextCommand, focused, hc, checking } from "herdr";
+
+// Ctrl+V de terminal (keys.json: "ctrl-v": "tabs-conversas.colar"). Com texto no clipboard, ou
+// num terminal de outra máquina, faz o mesmo que o terminal.paste_image do Herdr. Num terminal
+// local com só uma imagem no clipboard, o terminal.paste_image do Windows não faz nada: aí manda
+// Alt+V ao programa, a tecla com que o Claude Code no Windows lê a imagem do clipboard.
+// Mora aqui porque um <mod>.<comando> só chega a mods na tela, e a barra de abas sempre está.
+async function colar(cx) {
+  const t = focused()?.terminal;
+  if (!t || t.includes("/") || cx.read_from_clipboard() !== undefined) return run("terminal.paste_image");
+  await hc(["keys", t, "alt+v"]);
+}
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -28,7 +39,8 @@ function label(tab, lead) {
 }
 
 export default class Tabs extends View {
-  init() {
+  init(_props, cx) {
+    if (!checking()) cx.spawn(async (cx) => { for (;;) { if ((await nextCommand()) === "colar") await colar(cx); } });
     this.pressed = null;
     this.scroll = ScrollHandle.new();
     try { this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}"); } catch { this.panels = {}; }
