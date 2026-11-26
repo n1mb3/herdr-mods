@@ -10,7 +10,8 @@ Mods para o [Herdr](https://herdr.dev), no app desktop (herdr-app) e no herdr de
 | `mods/temas` | herdr-app | Janela **Temas**: usa, instala (de herdr.dev, GitHub ou um tema `.json`) e apaga layouts e temas de cor, e volta ao padrão. |
 | `mods/chrome-temas` | herdr-app | Clone do cabeçalho e do rodapé da barra lateral com o item **Temas** abaixo de Settings. |
 | `mods/spaces-icones` | herdr-app | Clone da lista de espaços: na barra lateral minimizada, o avatar colorido de cada espaço no lugar do número. |
-| `mods/agents-icones` | herdr-app | Clone da lista de agentes: na barra lateral minimizada, o ícone do agente e a bolinha de status no lugar do número, sem nome nem tempo (o nome fica na dica ao passar o mouse). |
+| `mods/agents-icones` | herdr-app | Clone da lista de agentes: na barra lateral minimizada, o ícone do agente e a bolinha de status no lugar do número, sem nome nem tempo (o nome fica na dica ao passar o mouse). Agentes de máquina remota ganham uma faixa à esquerda na cor da máquina, escolhida no quadradinho do cabeçalho dela na lista de espaços. |
+| `mods/workspace-status-nomes` | herdr-app | Clone da barra de status com o nome da máquina do espaço (Windows, Mac) no lugar de "This computer" e do nome em minúsculas. |
 | `layouts/main-conversas.json` | herdr-app | Clone do layout `main` que usa os mods acima. |
 | `tui/` | herdr de terminal | Plugin `herdr-conversas`: popup com as mesmas conversas, aberto por atalho. |
 

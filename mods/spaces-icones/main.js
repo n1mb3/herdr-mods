@@ -5,7 +5,7 @@
 // switch, right-click for its menu, drag to reorder.
 
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, ScrollHandle } from "gpui-base";
+import { v_flex, h_flex, ScrollHandle, InputState, Input } from "gpui-base";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
 
 function find(node, id) {
@@ -61,6 +61,19 @@ async function both(a, b) {
 // that draws space avatars): one strong color per hue, light and dark alike.
 const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
 
+// Nome exibido de cada máquina (o hc só aceita minúsculas): a remota com inicial
+// maiúscula, este computador pelo sistema (o mesmo em spaces-icones e agents-icones).
+const PLATFORM = { windows: "Windows", macos: "Mac", linux: "Linux" };
+// Um nome dado à mão (clique no nome no cabeçalho da máquina) fica em shared "machine.names",
+// com "" para este computador.
+const nome = (m) => (shared("machine.names") ?? {})[m ?? ""] || (m ? m[0].toUpperCase() + m.slice(1) : PLATFORM[window()?.platform] ?? "This computer");
+
+// A cor dos agentes de cada máquina remota, em shared "machine.colors" (lida também
+// pelo agents-icones): um nome de cor do tema, "off" para nenhuma; sem escolha, ansi5.
+const MACHINE_COLORS = ["ansi5", "ansi4", "ansi6", "ansi3", "ansi2", "ansi1", "off"];
+const machineColor = (m) => (shared("machine.colors") ?? {})[m] ?? MACHINE_COLORS[0];
+const machineTint = (t, m) => { const c = machineColor(m); return c === "off" ? null : c.startsWith("#") ? c : (MARK[c] ?? t[c]); };
+
 // Keep the whole leading emoji in the avatar (same rule in spaces and picker).
 // Newer pictographs such as 🖥 may be drawn as emoji without VS16. A trailing
 // selector, modifier or joiner can signal that we matched only part of a glyph.
@@ -80,6 +93,20 @@ export function tone(t, status) {
 
 export default class Spaces extends View {
   init(_props, cx) {
+    // Um campo só, para a máquina cujo nome está sendo editado (this.renaming = "" para esta).
+    this.renaming = null;
+    this.nameInput = InputState.new({ placeholder: "Nome da máquina" });
+    this.nameInput.on("submit", (_e, cx) => {
+      const names = { ...(shared("machine.names") ?? {}) };
+      const typed = this.nameInput.value().trim();
+      // Vazio volta ao nome padrão.
+      if (typed) names[this.renaming] = typed;
+      else delete names[this.renaming];
+      this.renaming = null;
+      setShared("machine.names", names);
+      cx.notify();
+    });
+    this.nameInput.on("blur", (_e, cx) => { if (this.renaming !== null) { this.renaming = null; cx.notify(); } });
     this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked }, null: not a repo
     this.checked = {}; // where() -> when it was last looked at
     this.unsure = new Set(); // where()s git couldn't answer for (a machine away)
@@ -383,7 +410,7 @@ export default class Spaces extends View {
       const icon = svg(`mods/workspace-chrome/${m ? "server" : "monitor"}.svg`).size(13).flex_none();
       const badge = div().absolute().right(-3).bottom(-2).size(6).rounded(3).border_1().border_color(t.chrome).bg(connected ? t.ansi2 : t.dim);
       const head = h_flex().id(`machine-${m ?? "local"}`).h(26).flex_none().px(collapsed ? 0 : 8).gap(7).items_center().text_size(11).text_color(t.dim)
-        .when(collapsed, el => el.mt(4).w(RAIL_CELL).justify_center().rounded(6).tooltip(login ? `${m} needs a login: run ${login}. Click for Copy.` : m ? `${m} · ${connected ? "connected" : (machine?.state ?? "asleep").replace(/_/g, " ")}` : "This computer"))
+        .when(collapsed, el => el.mt(4).w(RAIL_CELL).justify_center().rounded(6).tooltip(login ? `${m} needs a login: run ${login}. Click for Copy.` : m ? `${nome(m)} · ${connected ? "connected" : (machine?.state ?? "asleep").replace(/_/g, " ")}` : nome(m)))
         .cursor_pointer().hover(s => s.bg(t.hover))
         .on_click((_e, cx) => {
           if (collapsed && login) { run("app.settings", { section: "machines" }); return; }
@@ -396,7 +423,21 @@ export default class Spaces extends View {
           .on_click((_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "machine-add", kind: "dialog", width: 560 }); }).child("⚠")))
         .when(!collapsed, el => el.child(icon))
         .when(collapsed, el => el.child(div().relative().flex_none().child(icon).when(Boolean(m), el => el.child(badge))))
-        .when(!collapsed, el => el.child(div().flex_1().truncate().child(m ?? "This computer"))
+        .when(!collapsed && this.renaming === (m ?? ""), el => el.child(div().id(`machine-rename-${m ?? "local"}`).flex_1().min_w(0)
+          .on_click((_e, cx) => cx.stop_propagation())
+          .on_key_down((e, cx) => { if (e.key === "escape") { this.renaming = null; cx.stop_propagation(); cx.notify(); } })
+          .child(Input.new(this.nameInput).h(20).px(5).rounded(4).border_1().border_color(t.accent).bg(t.background).text_size(11).text_color(t.foreground))))
+        .when(!collapsed && this.renaming !== (m ?? ""), el => el.child(div().id(`machine-name-${m ?? "local"}`).flex_1().min_w(0)
+          .hover(s => s.text_color(t.foreground)).tooltip("Clique para renomear")
+          .child(div().max_w_full().truncate().child(nome(m)))
+          .on_click((_e, cx) => {
+            cx.stop_propagation();
+            this.renaming = m ?? "";
+            this.nameInput.set_value(nome(m));
+            this.nameInput.set_selected_range({ start: 0, end: nome(m).length });
+            this.nameInput.focus();
+            cx.notify();
+          }))
           .when(!connected && !rebuilt && !login, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
           .when(rebuilt, el => el.child(h_flex().flex_none().gap(3).items_center()
             .child(div().max_w(140).truncate().child(repair?.error || "rebuilt ·"))
@@ -407,12 +448,20 @@ export default class Spaces extends View {
               .child(repair?.busy ? "Connecting…" : "Connect"))))
           .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(4).hover(s => s.bg(t.hover).text_color(t.foreground))
             .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", { machine: m ?? "" }); }).child("+")))
+          .when(Boolean(m), el => el.child(div().id(`machine-color-${m}`).size(10).rounded(3).flex_none().cursor_pointer()
+            .border_1().border_color(machineTint(t, m) ?? t.dim).bg(machineTint(t, m) ? machineTint(t, m) + "66" : t.chrome)
+            .tooltip(`Cor dos agentes de ${m}: clique para trocar`)
+            .on_click((_e, cx) => {
+              cx.stop_propagation();
+              const next = MACHINE_COLORS[(MACHINE_COLORS.indexOf(machineColor(m)) + 1) % MACHINE_COLORS.length];
+              setShared("machine.colors", { ...(shared("machine.colors") ?? {}), [m]: next });
+            })))
           .child(div().size(6).rounded(3).flex_none().bg(connected ? t.ansi2 : t.dim))
           .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none()));
       const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(collapsed ? 0 : 8).gap(7).items_center().rounded(7)
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => run("space.new", { machine: m ?? "" }))
-        .when(collapsed, el => el.w(RAIL_CELL).rounded(6).justify_center().tooltip(`New space on ${m ?? "this computer"}`)
+        .when(collapsed, el => el.w(RAIL_CELL).rounded(6).justify_center().tooltip(`New space on ${nome(m)}`)
           .child(h_flex().size(18).rounded(5).border_1().border_color(t.dim).items_center().justify_center()
             .child(svg("mods/workspace-chrome/plus.svg").size(10))))
         .when(!collapsed, el => el.child(svg("mods/workspace-chrome/plus.svg").size(12)).child("New space there"));

@@ -3,7 +3,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
+import { agents, terminals, panes, focused, spaces, machines, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -75,6 +75,22 @@ function duration(ms) {
   const h = Math.floor(m / 60);
   return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
+
+// A cor da máquina de um agente remoto, escolhida no cabeçalho da máquina (spaces-icones,
+// shared "machine.colors"); as mesmas cores e o mesmo padrão de lá.
+const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
+function machineTint(t, m) {
+  if (!m) return null;
+  const c = (shared("machine.colors") ?? {})[m] ?? "ansi5";
+  return c === "off" ? null : c.startsWith("#") ? c : (MARK[c] ?? t[c]);
+}
+
+// A faixa de 3px à esquerda da linha do agente remoto; absoluta, não empurra o conteúdo.
+// Na barra minimizada ela encosta na borda da barra (left -4, a margem da célula), longe do ícone.
+const stripe = (color, collapsed) => div().absolute().left(collapsed ? -4 : 0).top(5).bottom(5).w(3).rounded(2).bg(color);
+// O nome da máquina na dica ("Mac - PokeBG"): a remota com inicial maiúscula, esta pelo sistema.
+const PLATFORM = { windows: "Windows", macos: "Mac", linux: "Linux" };
+const machineLabel = (m) => (shared("machine.names") ?? {})[m ?? ""] || (m ? m[0].toUpperCase() + m.slice(1) : PLATFORM[window()?.platform] ?? "This computer");
 
 // The agent's icon from the app's program table: a one-color glyph or a picture.
 function icon(p, size, color) {
@@ -306,6 +322,7 @@ export default class Agents extends View {
       const more = detail.get(a.address);
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
+      const tint = machineTint(t, machine);
       if (collapsed) {
         return h_flex()
           .id(`ag-${a.address}`)
@@ -317,10 +334,12 @@ export default class Agents extends View {
           .items_center()
           .gap(2)
           .justify_center()
+          .relative()
+          .when(Boolean(tint), (el) => el.child(stripe(tint, true)))
           .when(a.focused, (el) => el.bg(t.selected))
           .hover((s) => s.bg(t.hover))
           .on_click(() => run("pane.focus", { pane: a.pane }))
-          .tooltip([a.space_name, detail.get(a.address)].filter(Boolean).join(" · ") || label(a))
+          .tooltip([machines().length > 1 ? machineLabel(machine) : null, [...new Set([a.space_name, detail.get(a.address)])].filter(Boolean).join(" · ") || label(a)].filter(Boolean).join(" - "))
           .child(pic ?? div().text_color(a.focused ? t.foreground : t.muted).child(String(i + 1)))
           .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
       }
@@ -356,6 +375,8 @@ export default class Agents extends View {
         .rounded(8)
         .items_center()
         .gap(9)
+        .relative()
+        .when(Boolean(tint), (el) => el.child(stripe(tint)))
         .when(a.focused, (el) => el.bg(t.selected))
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
@@ -374,7 +395,7 @@ export default class Agents extends View {
         .child(h_flex().flex_1().min_w(0).gap(5).items_center()
           .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
           .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
-        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
+        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(tint ?? t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
