@@ -87,6 +87,9 @@ command = "herdr-conversas.abrir"
 description = "conversas do Claude"
 ```
 
+No Windows, use `command = "herdr-conversas.abrir-windows"`: lá o Python se chama `python`, e
+não `python3`, e o herdr não aceita a mesma ação com outro comando por sistema.
+
 Depois, `herdr config check` e `herdr server reload-config`. No popup: `↑` `↓` escolhem,
 `Enter` retoma, `c` copia o comando, `r` atualiza, `Esc` fecha.
 
