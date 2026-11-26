@@ -15,7 +15,7 @@ you want it different, build it again from here. The UI text is in Portuguese
 
 ## What you see
 
-Herdr's `main` layout (0.1.16), unchanged except for five things:
+Herdr's `main` layout (0.1.16), unchanged except for seven things:
 
 1. **The Conversas panel**, on the right of the terminals, 368px wide, in the
    same card style as Files and Changes (10px radius, 1px border).
@@ -55,6 +55,21 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
    with an 8px dot on its top right corner only when the space needs you
    (blocked or done), and each agent shows its program icon with its status (spinner,
    ring, dot, !), with no name or time. Hovering shows the name.
+6. **A color per remote machine**: each remote machine header in the spaces
+   list has a 10px swatch before its connection dot; a click cycles the color
+   (ansi5, ansi4, ansi6, ansi3, ansi2, ansi1, off), kept in shared
+   `machine.colors` by machine name, ansi5 when never picked. That machine's
+   agents get a 3px stripe of that color on the left of their row (expanded
+   and on the rail, where it sits on the rail's edge; selected or not) and
+   their machine label in it. With more than one machine, the rail tooltip
+   leads with the machine: `Mac - PokeBG` (this computer by its system name).
+7. **Machine names**: a machine shows as its name with a capital first letter
+   (`mac` becomes Mac) and this computer by its system (Windows, Mac, Linux),
+   in the spaces list, the agents tooltip and the status bar (a clone of
+   `workspace-status`). Clicking the name in a machine header turns it into a
+   field: Enter keeps it in shared `machine.names` (`""` for this computer),
+   an empty name goes back to the default, Esc or clicking away cancels. The
+   rest of the header still folds the machine.
 
 ## How it behaves
 
