@@ -156,6 +156,11 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
 - The page icon opens a 720×620 dialog with that conversation's title, folder
   and ID, and its last turns (Você on a raised card, Claude on the plain one,
   each with its time), scrolled to the newest. Esc or × closes it.
+- The search field under the header (28px, "Pesquisar por título, pasta ou ID")
+  filters on every key: each word, without case or accents, must appear in the
+  title, the folder name or the ID. Matching folders open with all their hits
+  and no pages, the count shows the hits, Esc clears it. It searches what was
+  loaded, the 50 newest conversations of each folder.
 - The pencil swaps the title for a field with the name selected; Enter saves
   it (the row shows it at once and goes back if the write fails), Esc or a
   click elsewhere gives up. While editing, a click on the row doesn't resume.

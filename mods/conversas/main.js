@@ -18,6 +18,8 @@ const LIMITE = 50;      // conversas por pasta pedidas ao coletor (as mais recen
 
 const norm = (p) => (p ?? "").replace(/[\\/]+$/, "").replace(/\//g, "\\").toLowerCase();
 const nome = (p) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
+// Pesquisa sem caixa nem acento: "acao" acha "Ação".
+const plano = (s) => (s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 function quando(seg) {
   const d = new Date(seg * 1000);
@@ -59,6 +61,10 @@ export default class Conversas extends View {
     this.nome = InputState.new({ placeholder: "Nome da conversa" });
     this.nome.on("submit", (_e, cx) => this.renomear(cx));
     this.nome.on("blur", (_e, cx) => { if (this.editando) { this.editando = null; cx.notify(); } });
+    // Pesquisa: filtra a lista carregada por título, pasta e ID a cada tecla.
+    this.filtro = "";
+    this.busca = InputState.new({ placeholder: "Pesquisar por título, pasta ou ID" });
+    this.busca.on("change", (_e, cx) => { this.filtro = this.busca.value(); cx.notify(); });
     // Pastas recolhidas e página de cada pasta: ficam guardadas entre aberturas.
     let estado = {};
     try { estado = JSON.parse(localStorage.getItem("estado") ?? "{}") ?? {}; } catch { estado = {}; }
@@ -230,10 +236,18 @@ export default class Conversas extends View {
           .child(div().flex_none().text_size(11).text_color(t.dim).child(quando(c.quando))))
         .child(div().text_size(10.5).truncate().text_color(t.dim).child(c.id));
 
+    // Com pesquisa, cada pasta mostra todas as conversas que batem, aberta e sem páginas.
+    const termos = plano(this.filtro).split(/\s+/).filter(Boolean);
+    const filtrando = termos.length > 0;
+    const bate = (g, c) => { const alvo = plano(`${c.titulo} ${nome(g.cwd)} ${c.id}`); return termos.every((x) => alvo.includes(x)); };
+    const visiveis = filtrando
+      ? this.grupos.map((g) => ({ ...g, conversas: g.conversas.filter((c) => bate(g, c)) })).filter((g) => g.conversas.length)
+      : this.grupos;
+
     const grupo = (g) => {
-      const aberto = !this.fechados.has(g.cwd);
-      const total = Math.max(1, Math.ceil(g.conversas.length / POR_PAGINA));
-      const pagina = Math.min(this.paginas[g.cwd] ?? 0, total - 1);
+      const aberto = filtrando || !this.fechados.has(g.cwd);
+      const total = filtrando ? 1 : Math.max(1, Math.ceil(g.conversas.length / POR_PAGINA));
+      const pagina = filtrando ? 0 : Math.min(this.paginas[g.cwd] ?? 0, total - 1);
       const ir = (d) => (_e, cx) => {
         cx.stop_propagation();
         this.paginas[g.cwd] = Math.max(0, Math.min(total - 1, pagina + d));
@@ -279,12 +293,12 @@ export default class Conversas extends View {
             .child(seta(`cn-${g.cwd}`, "›", 1, pagina < total - 1))))
           .child(div().flex_none().text_size(10.5).font_medium().text_color(t.muted).child(String(g.conversas.length)))
           .child(svg(`mods/workspace-chrome/chevron-${aberto ? "down" : "right"}.svg`).size(11).flex_none().text_color(t.dim)),
-        ...(aberto ? g.conversas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA).map(linha) : []),
+        ...(aberto ? (filtrando ? g.conversas : g.conversas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA)).map(linha) : []),
       ];
     };
 
     // Painel lateral direito, no mesmo cartão de Files e Changes.
-    const total = this.grupos.reduce((n, g) => n + g.conversas.length, 0);
+    const total = visiveis.reduce((n, g) => n + g.conversas.length, 0);
     return v_flex()
       .id("conversas")
       .size_full()
@@ -322,9 +336,15 @@ export default class Conversas extends View {
               .child(this.carregando ? "…" : "↻"),
           ),
       )
+      // Esc no campo limpa a pesquisa.
+      .child(h_flex().flex_none().px(10).py(8).border_b(1).border_color(t.border)
+        .on_key_down((e, cx) => { if (e.key === "escape" && this.filtro) { this.busca.set_value(""); this.filtro = ""; cx.stop_propagation(); cx.notify(); } })
+        .child(Input.new(this.busca).flex_1().h(28).px(8).rounded(6).border_1().border_color(t.input).bg(t.background).text_size(12.5)))
       .when(Boolean(this.erro), (el) => el.child(div().p(14).text_size(12).text_color(t.blocked).child(this.erro)))
+      .when(!this.erro && filtrando && visiveis.length === 0 && this.grupos.length > 0, (el) =>
+        el.child(div().p(14).text_size(12).text_color(t.dim).child(`Nenhuma conversa com “${this.filtro.trim()}”.`)))
       .when(!this.erro && this.grupos.length === 0, (el) =>
         el.child(div().p(14).text_size(12).text_color(t.dim).child(this.carregando ? "Lendo conversas…" : "Nenhuma conversa encontrada.")))
-      .child(v_flex().id("cv-lista").flex_1().min_h(0).p(6).overflow_y_scrollbar().children(this.grupos.flatMap(grupo)));
+      .child(v_flex().id("cv-lista").flex_1().min_h(0).p(6).overflow_y_scrollbar().children(visiveis.flatMap(grupo)));
   }
 }
