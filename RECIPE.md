@@ -15,7 +15,7 @@ you want it different, build it again from here. The UI text is in Portuguese
 
 ## What you see
 
-Herdr's `main` layout (0.1.16), unchanged except for four things:
+Herdr's `main` layout (0.1.16), unchanged except for five things:
 
 1. **The Conversas panel**, on the right of the terminals, 368px wide, in the
    same card style as Files and Changes (10px radius, 1px border).
@@ -47,6 +47,10 @@ Herdr's `main` layout (0.1.16), unchanged except for four things:
    - **Instalar**: a field for a `herdr.dev/layouts/<owner>/<name>` link, a
      GitHub repo or a theme `.json` URL, and Conferir.
    - Footer: Voltar ao padrão and a status line.
+5. **Icons on the collapsed sidebar**: on the 44px rail each space shows its
+   18px colored avatar (the letter or emoji of the expanded list) with its
+   status glyph, and each agent shows its program icon with its status (spinner,
+   ring, dot, !), with no name or time. Hovering shows the name.
 
 ## How it behaves
 
@@ -77,7 +81,8 @@ Herdr's `main` layout (0.1.16), unchanged except for four things:
   `"titlebar": "none"` and `"terminal_menu": "menu-split"`. The sidebar's
   `brand` and `sidebar-footer` blocks show `chrome-temas` (the footer with
   `props: { footer: true }`, `size: { px: 97 }`); the `tabs` block shows
-  `tabs-conversas`; the `panel` column (`px: 368`, hidden at start) holds a
+  `tabs-conversas`; `spaces` and `agents` show `spaces-icones` and
+  `agents-icones`; the `panel` column (`px: 368`, hidden at start) holds a
   `stack` named `panel-body` with three blocks: `files`, `changes` and
   `conversas`. The status bar stays `workspace-status`.
 - **`mods/conversas/`**: the panel. It runs
@@ -97,6 +102,9 @@ Herdr's `main` layout (0.1.16), unchanged except for four things:
   The new pane is the one in `panes()` that was not there before the split.
 - **`mods/chrome-temas/`**: a clone of `workspace-chrome` with the Temas row,
   which runs `mod.open {name: "temas"}` and reads its shortcut from `keys()`.
+- **`mods/spaces-icones/`** and **`mods/agents-icones/`**: clones of the
+  shipped `spaces` and `agents` (0.1.18); only `compact()` and the collapsed
+  `row` changed, plus a tooltip on each rail cell.
 - **`mods/temas/`**: the dialog (`main.js`) and its engine `temas.py`
   (`listar`, `inspecionar <link>`, `instalar <id>`, `remover <id>`), run with
   `exec`. Installs are recorded in `~/.config/herdr-app/.temas/registro.json`.
@@ -115,7 +123,8 @@ Herdr's `main` layout (0.1.16), unchanged except for four things:
   `"ctrl-shift-y": "mod.open:temas"` to `global` in your `keys.json`; the
   Temas row shows whatever key you bind.
 - `tabs-conversas`, `menu-split` and `chrome-temas` are clones of Herdr
-  0.1.16 mods: Herdr updates the originals, not the clones.
+  0.1.16 mods, `spaces-icones` and `agents-icones` of 0.1.18: Herdr updates
+  the originals, not the clones.
 - Settings itself can't take a new section (the app rewrites `frame/` on every
   start), hence the sidebar row.
 - `pane.split` only goes right and down; up and left are split plus swap.
@@ -141,4 +150,4 @@ Herdr's `main` layout (0.1.16), unchanged except for four things:
 - The Temas row opens the dialog; Usar switches layout, a chip changes colors,
   Conferir on a gallery link shows its contents before anything is copied.
 - `herdr-app check` passes for `conversas`, `tabs-conversas`, `menu-split`,
-  `chrome-temas` and `temas`, and switching to `main` and back works.
+  `chrome-temas`, `temas`, `spaces-icones` and `agents-icones`, and switching to `main` and back works.

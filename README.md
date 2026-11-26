@@ -9,6 +9,8 @@ Mods para o [Herdr](https://herdr.dev), no app desktop (herdr-app) e no herdr de
 | `mods/menu-split` | herdr-app | Clone do menu de botão direito do terminal com um direcional de split (↑ ← → ↓), como num controle. |
 | `mods/temas` | herdr-app | Janela **Temas**: usa, instala (de herdr.dev, GitHub ou um tema `.json`) e apaga layouts e temas de cor, e volta ao padrão. |
 | `mods/chrome-temas` | herdr-app | Clone do cabeçalho e do rodapé da barra lateral com o item **Temas** abaixo de Settings. |
+| `mods/spaces-icones` | herdr-app | Clone da lista de espaços: na barra lateral minimizada, o avatar colorido de cada espaço no lugar do número. |
+| `mods/agents-icones` | herdr-app | Clone da lista de agentes: na barra lateral minimizada, o ícone do agente e a bolinha de status no lugar do número, sem nome nem tempo (o nome fica na dica ao passar o mouse). |
 | `layouts/main-conversas.json` | herdr-app | Clone do layout `main` que usa os mods acima. |
 | `tui/` | herdr de terminal | Plugin `herdr-conversas`: popup com as mesmas conversas, aberto por atalho. |
 
@@ -107,7 +109,8 @@ o `mods/temas/temas.py` (`listar`, `inspecionar`, `instalar`, `remover`).
   O JSON sai com escapes `\uXXXX` porque o stdout de um pipe no Windows é cp1252.
 - O herdr-app só divide painéis para a direita e para baixo. **Split left** e **Split up** dividem
   para o outro lado e trocam os dois painéis de lugar.
-- `tabs-conversas` e `menu-split` são clones de mods do Herdr (versão 0.1.16): os originais são
+- `tabs-conversas` e `menu-split` são clones de mods do Herdr 0.1.16, e `spaces-icones` e
+  `agents-icones` do 0.1.18: os originais são
   substituídos a cada atualização do app, os clones não, então não recebem as novidades dos
   originais.
 
