@@ -5,7 +5,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle, InputState, Input } from "gpui-base";
-import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay, machines, shared, readTextFile } from "herdr";
+import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay, machines, shared, readTextFile, focused } from "herdr";
 
 // Mesmo main.js no Windows e no Linux: só o Python muda.
 const WINDOWS = () => window()?.platform === "windows";
@@ -32,9 +32,14 @@ async function rodar(args, maquina, timeout) {
 const PLATAFORMA = { windows: "Windows", macos: "Mac", linux: "Linux" };
 const nomeMaquina = (m) => (shared("machine.names") ?? {})[m ?? ""] || (m ? m[0].toUpperCase() + m.slice(1) : PLATAFORMA[window()?.platform] ?? "Este computador");
 const COMANDO = (id) => `claude --dangerously-skip-permissions --resume ${id}`;
-const ATUALIZA_MS = 30000;
 const POR_PAGINA = 2;   // conversas por página em cada pasta
 const LIMITE = 50;      // conversas por pasta pedidas ao coletor (as mais recentes)
+
+// Última lista lida de cada máquina, para o painel mostrar na hora e reler por trás.
+const CACHE = (m) => `grupos:${m ?? ""}`;
+function lerCache(m) {
+  try { return JSON.parse(localStorage.getItem(CACHE(m)) ?? "[]") ?? []; } catch { return []; }
+}
 
 const norm = (p) => (p ?? "").replace(/[\\/]+$/, "").replace(/\//g, "\\").toLowerCase();
 const nome = (p) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
@@ -79,7 +84,6 @@ export default class Conversas extends View {
       if (!checking()) this.lerFalas(cx);
       return;
     }
-    this.grupos = [];
     this.erro = null;
     // Um campo só, para a conversa cujo nome está sendo editado pelo lápis (this.editando = id).
     this.editando = null;
@@ -90,40 +94,53 @@ export default class Conversas extends View {
     this.filtro = "";
     this.busca = InputState.new({ placeholder: "Pesquisar por título, pasta ou ID" });
     this.busca.on("change", (_e, cx) => { this.filtro = this.busca.value(); cx.notify(); });
-    // Pastas recolhidas e página de cada pasta: ficam guardadas entre aberturas.
+    // Pastas fechadas por padrão: só abre a da janela com o foco (ou a que a pessoa abrir).
+    this.abertos = new Set();
+    // Página de cada pasta: fica guardada entre aberturas.
     let estado = {};
     try { estado = JSON.parse(localStorage.getItem("estado") ?? "{}") ?? {}; } catch { estado = {}; }
-    this.fechados = new Set(Array.isArray(estado.fechados) ? estado.fechados : []);
     this.paginas = estado.paginas && typeof estado.paginas === "object" ? estado.paginas : {};
     // De qual máquina são as conversas mostradas (null: este computador); fica guardada também.
     this.maquina = typeof estado.maquina === "string" ? estado.maquina : null;
+    this.grupos = lerCache(this.maquina);
     this.vez = 0; // cada leitura leva um número: a resposta de uma máquina antiga é descartada
+    this.lista = ScrollHandle.new();
+    this.foco = null; // { cwd, maquina } da janela com o foco
     if (checking()) return;
-    this.carregar(cx);
-    cx.timer.every(ATUALIZA_MS, (cx) => this.carregar(cx));
+    // Sem timer: a lista só se relê sozinha quando a pasta da janela com o foco não está nela.
+    if (!this.grupos.length) this.carregar(cx);
   }
 
   salvar() {
-    localStorage.setItem("estado", JSON.stringify({ fechados: [...this.fechados], paginas: this.paginas, maquina: this.maquina }));
+    localStorage.setItem("estado", JSON.stringify({ paginas: this.paginas, maquina: this.maquina }));
   }
 
   trocarMaquina(m, cx) {
     if ((m ?? null) === this.maquina) return;
     this.maquina = m ?? null;
-    this.grupos = [];
+    this.grupos = lerCache(this.maquina);
     this.erro = null;
     this.editando = null;
     this.salvar();
-    this.carregar(cx);
+    // Com a lista dessa máquina já lida, só troca, sem reler.
+    if (this.grupos.length) { this.vez++; this.carregando = false; cx.notify(); }
+    else this.carregar(cx);
   }
 
-  // Todas abertas ou todas fechadas, inclusive as que ainda não apareceram (chaves = pastas).
+  // O foco foi para outra janela: a lista vai para a máquina dela e começa pela pasta dela.
+  focar(maquina, cx) {
+    this.trocarMaquina(maquina, cx);
+    this.lista.scroll_to_item(0);
+    cx.notify();
+  }
+
+  // Todas abertas ou todas fechadas (chaves = pastas).
   todas(abrir) {
-    this.fechados = abrir ? new Set() : new Set(this.grupos.map((g) => g.cwd));
-    this.salvar();
+    this.abertos = new Set(abrir ? this.grupos.map((g) => g.cwd) : []);
   }
 
   carregar(cx) {
+    this.releu = this.chaveFoco; // esta leitura já vale como a nova tentativa de achar a pasta do foco
     const vez = ++this.vez, maquina = this.maquina;
     this.carregando = true;
     cx.notify();
@@ -133,6 +150,7 @@ export default class Conversas extends View {
         const r = await rodar(["--listar", "--limite", String(LIMITE)], maquina, 60000);
         if (r.code !== 0) throw new Error(r.stderr.trim() || `saiu com ${r.code}`);
         grupos = JSON.parse(r.stdout);
+        localStorage.setItem(CACHE(maquina), r.stdout);
       } catch (e) {
         erro = maquina ? `${nomeMaquina(maquina)}: ${e?.message ?? e}` : String(e?.message ?? e);
       }
@@ -228,6 +246,17 @@ export default class Conversas extends View {
   render(cx) {
     const t = theme();
     if (props()?.conversa) return this.modal(t);
+    // Lido a cada render: um painel escondido não renderiza, então detectar a abertura perdia trocas de foco.
+    const f = focused(), s = spaces().find((x) => x.id === f?.space);
+    const foco = s && { cwd: norm(f.cwd ?? s.folder), maquina: s.machine ?? null };
+    if (foco && `${foco.maquina} ${foco.cwd}` !== this.chaveFoco && !checking()) {
+      this.chaveFoco = `${foco.maquina} ${foco.cwd}`;
+      this.foco = foco;
+      this.abertos = new Set();
+      this.abrirFoco = true;
+      // Depois do render: cx.spawn roda o corpo já, e o cx.notify() de carregar() lança durante o render.
+      cx.timer.after(0, (cx) => this.focar(foco.maquina, cx));
+    }
     // Ícone que abre o modal das últimas falas, sem retomar a conversa.
     const ver = (c) => div().id(`cvv-${c.id}`).size(20).flex_none().flex().items_center().justify_center().rounded(5)
       .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.background).text_color(t.foreground))
@@ -282,12 +311,25 @@ export default class Conversas extends View {
     const termos = plano(this.filtro).split(/\s+/).filter(Boolean);
     const filtrando = termos.length > 0;
     const bate = (g, c) => { const alvo = plano(`${c.titulo} ${nome(g.cwd)} ${c.id}`); return termos.every((x) => alvo.includes(x)); };
-    const visiveis = filtrando
+    const filtrados = filtrando
       ? this.grupos.map((g) => ({ ...g, conversas: g.conversas.filter((c) => bate(g, c)) })).filter((g) => g.conversas.length)
       : this.grupos;
+    // A pasta da janela com o foco (a mais funda que contém o cwd dela) vai primeiro, destacada e aberta.
+    const naPasta = (g) => this.foco.cwd === norm(g.cwd) || this.foco.cwd.startsWith(norm(g.cwd) + "\\");
+    const meu = this.foco?.maquina === this.maquina
+      ? filtrados.filter(naPasta).reduce((a, g) => (!a || g.cwd.length > a.cwd.length ? g : a), null)
+      : null;
+    // Pasta do foco fora da lista (ela mesma, não um ancestral como D:): relê uma vez por troca de foco,
+    // o único reload automático.
+    if (this.foco?.maquina === this.maquina && !this.carregando && this.releu !== this.chaveFoco && !this.grupos.some((g) => norm(g.cwd) === this.foco.cwd)) {
+      this.releu = this.chaveFoco;
+      cx.timer.after(0, (cx) => this.carregar(cx));
+    }
+    if (meu && this.abrirFoco) { this.abrirFoco = false; this.abertos = new Set([meu.cwd]); }
+    const visiveis = meu ? [meu, ...filtrados.filter((g) => g !== meu)] : filtrados;
 
     const grupo = (g) => {
-      const aberto = filtrando || !this.fechados.has(g.cwd);
+      const aberto = filtrando || this.abertos.has(g.cwd);
       const total = filtrando ? 1 : Math.max(1, Math.ceil(g.conversas.length / POR_PAGINA));
       const pagina = filtrando ? 0 : Math.min(this.paginas[g.cwd] ?? 0, total - 1);
       const ir = (d) => (_e, cx) => {
@@ -312,9 +354,9 @@ export default class Conversas extends View {
           .gap(7)
           .items_center()
           .rounded(7)
-          .bg(t.raised)
+          .bg(g === meu ? t.selected : t.raised)
           .border_1()
-          .border_color(t.border)
+          .border_color(g === meu ? t.accent : t.border)
           .text_size(12.5)
           .font_semibold()
           .text_color(t.foreground)
@@ -322,8 +364,7 @@ export default class Conversas extends View {
           .hover((s) => s.bg(t.hover))
           .tooltip(g.cwd)
           .on_click((_e, cx) => {
-            aberto ? this.fechados.add(g.cwd) : this.fechados.delete(g.cwd);
-            this.salvar();
+            aberto ? this.abertos.delete(g.cwd) : this.abertos.add(g.cwd);
             cx.notify();
           })
           .child(svg("mods/workspace-chrome/folder.svg").size(14).flex_none().text_color(t.accent))
@@ -404,6 +445,6 @@ export default class Conversas extends View {
         el.child(div().p(14).text_size(12).text_color(t.dim).child(`Nenhuma conversa com “${this.filtro.trim()}”.`)))
       .when(!this.erro && this.grupos.length === 0, (el) =>
         el.child(div().p(14).text_size(12).text_color(t.dim).child(this.carregando ? "Lendo conversas…" : "Nenhuma conversa encontrada.")))
-      .child(v_flex().id("cv-lista").flex_1().min_h(0).p(6).overflow_y_scrollbar().children(visiveis.flatMap(grupo)));
+      .child(v_flex().id("cv-lista").flex_1().min_h(0).p(6).overflow_y_scrollbar().track_scroll(this.lista).children(visiveis.flatMap(grupo)));
   }
 }
