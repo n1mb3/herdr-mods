@@ -138,6 +138,70 @@ def coletar(limite: int = LIMITE) -> list:
     return lista
 
 
+def texto_da_mensagem(d: dict) -> str:
+    """Só o texto de uma linha user/assistant: sem pensamento, ferramenta, resultado ou aviso."""
+    if d.get("isMeta") or d.get("isSidechain"):
+        return ""
+    conteudo = (d.get("message") or {}).get("content")
+    if isinstance(conteudo, list):
+        conteudo = "\n\n".join(c.get("text", "") for c in conteudo if isinstance(c, dict) and c.get("type") == "text")
+    if not isinstance(conteudo, str):
+        return ""
+    texto = conteudo.strip()
+    # <command-name>, <local-command-stdout>, avisos do sistema: não são conversa.
+    return "" if texto.startswith("<") else texto
+
+
+def ultimas(id_: str, quantas: int = 12, corte: int = 1500) -> list:
+    """As últimas `quantas` falas da conversa `id_`, da mais antiga para a mais nova.
+
+    Lê o .jsonl de trás para frente em blocos: o arquivo chega a dezenas de MB, e as
+    linhas de api-request-blob ocupam quase tudo. Falas seguidas do mesmo papel viram uma.
+    """
+    raiz = pasta_projetos()
+    try:
+        caminho = next(c for c in (os.path.join(raiz, p, id_ + ".jsonl") for p in os.listdir(raiz)) if os.path.isfile(c))
+    except (OSError, StopIteration):
+        return []
+    falas, sobra, BLOCO, MAX = [], b"", 1 << 21, 64 << 20
+    with open(caminho, "rb") as f:
+        fim = f.seek(0, os.SEEK_END)
+        pos = fim
+        while pos > 0 and fim - pos < MAX and len(falas) <= quantas:
+            ini = max(0, pos - BLOCO)
+            f.seek(ini)
+            partes = (f.read(pos - ini) + sobra).split(b"\n")
+            # A primeira parte pode ser meia linha: espera o bloco anterior, salvo no começo do arquivo.
+            sobra = partes.pop(0) if ini > 0 else b""
+            pos = ini
+            for bruta in reversed(partes):
+                if b'"type":"user"' not in bruta and b'"type":"assistant"' not in bruta:
+                    continue
+                try:
+                    d = json.loads(bruta.decode("utf-8", "replace"))
+                except ValueError:
+                    continue
+                papel = d.get("type")
+                if papel not in ("user", "assistant"):
+                    continue
+                texto = texto_da_mensagem(d)
+                if not texto:
+                    continue
+                if falas and falas[-1]["papel"] == papel:
+                    # Lendo de trás para frente: o texto mais antigo vai na frente, e a hora é a do começo.
+                    falas[-1]["texto"] = texto + "\n\n" + falas[-1]["texto"]
+                    falas[-1]["quando"] = d.get("timestamp", falas[-1]["quando"])
+                else:
+                    falas.append({"papel": papel, "texto": texto, "quando": d.get("timestamp", "")})
+    falas = falas[:quantas]
+    # Do pedido fica o começo; da resposta, o fim, onde está a conclusão.
+    for fala in falas:
+        if len(fala["texto"]) > corte:
+            t = fala["texto"]
+            fala["texto"] = t[:corte].rstrip() + " …" if fala["papel"] == "user" else "… " + t[-corte:].lstrip()
+    return list(reversed(falas))
+
+
 def normalizar(p: str) -> str:
     return os.path.normcase(os.path.normpath(p)).rstrip("\\/")
 
@@ -394,5 +458,8 @@ if __name__ == "__main__":
         # lê (o mod do herdr-app) decodifica UTF-8; assim os acentos sobrevivem a qualquer codificação.
         limite = int(sys.argv[sys.argv.index("--limite") + 1]) if "--limite" in sys.argv else LIMITE
         print(json.dumps(coletar(limite), indent=1))
+        sys.exit(0)
+    if "--ultimas" in sys.argv:  # as últimas falas de uma conversa, para o modal do painel
+        print(json.dumps(ultimas(sys.argv[sys.argv.index("--ultimas") + 1])))
         sys.exit(0)
     sys.exit(main())

@@ -4,7 +4,7 @@ Mods para o [Herdr](https://herdr.dev), no app desktop (herdr-app) e no herdr de
 
 | Peça | Onde | O que faz |
 |---|---|---|
-| `mods/conversas` | herdr-app | Painel **Conversas** à direita, junto de Files e Changes: as 2 últimas conversas do Claude Code de cada pasta, com título, hora e ID. Clique retoma a conversa; botão direito copia o comando. |
+| `mods/conversas` | herdr-app | Painel **Conversas** à direita, junto de Files e Changes: as 2 últimas conversas do Claude Code de cada pasta, com título, hora e ID. Clique retoma a conversa; botão direito copia o comando; o ícone de página abre um modal com as últimas falas. |
 | `mods/tabs-conversas` | herdr-app | Clone da barra de abas do Herdr com o botão **Conversas** ao lado de Files e Changes. |
 | `mods/menu-split` | herdr-app | Clone do menu de botão direito do terminal com um direcional de split (↑ ← → ↓), como num controle. |
 | `mods/temas` | herdr-app | Janela **Temas**: usa, instala (de herdr.dev, GitHub ou um tema `.json`) e apaga layouts e temas de cor, e volta ao padrão. |
@@ -107,6 +107,9 @@ o `mods/temas/temas.py` (`listar`, `inspecionar`, `instalar`, `remover`).
 - `mods/conversas/conversas.py --listar` imprime a lista em JSON; o mod do app chama esse modo a
   cada 30 s. O popup do herdr de terminal é o mesmo script, sem `--listar`.
   O JSON sai com escapes `\uXXXX` porque o stdout de um pipe no Windows é cp1252.
+- `conversas.py --ultimas <id>` devolve as 12 últimas falas de texto da conversa (pedidos e
+  respostas, sem ferramentas nem pensamento), lendo o `.jsonl` de trás para frente; o modal
+  do ícone de página chama esse modo.
 - O herdr-app só divide painéis para a direita e para baixo. **Split left** e **Split up** dividem
   para o outro lado e trocam os dois painéis de lugar.
 - `tabs-conversas` e `menu-split` são clones de mods do Herdr 0.1.16, e `spaces-icones` e

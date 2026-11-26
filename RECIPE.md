@@ -27,7 +27,8 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
      then `‹ 1/3 ›` when it has more than one page, the folder's conversation
      count and a chevron (down open, right closed). Hovering shows the full path.
    - Under an open band, two conversations per page: the title on the left, the
-     time on the right (`12:34` today, `16/11` before) and the conversation ID
+     time on the right (`12:34` today, `16/11` before), a 20px page icon
+     (`file-text.svg`) before the time, and the conversation ID
      under it in 10.5px dim text.
    - Folders are ordered by their newest conversation.
 2. **A Conversas button** in the tab bar, after Files and Changes, with a chat
@@ -93,6 +94,10 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
   `aiTitle`, else the first prompt), the folder is the first user
   message's `cwd`, the time is the file's mtime. It caches each file by mtime
   and size in the temp folder. Without `--listar` it is a terminal popup.
+  `--ultimas <id>` prints the last 12 text turns of one conversation (tool
+  calls, results and thinking left out; consecutive lines of one role merged;
+  a prompt keeps its first 1500 characters, a reply its last 1500), reading
+  the file backwards in 2 MB blocks, at most 64 MB.
   State lives in `localStorage` key `estado`: `{fechados, paginas}`.
   Commands: `tab.new`, `space.new`; data: `spaces()`, `panes()`.
 - **`mods/tabs-conversas/`**: a clone of the shipped `tabs` that always adds
@@ -145,6 +150,9 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
   both survive closing and reopening Herdr.
 - Clicking a conversation opens a tab running `claude … --resume <id>` in its
   folder; right-click copies the command.
+- The page icon opens a 720×620 dialog with that conversation's title, folder
+  and ID, and its last turns (Você on a raised card, Claude on the plain one,
+  each with its time), scrolled to the newest. Esc or × closes it.
 - Each of the four pad arrows splits the right-clicked pane to that side, with
   the new pane focused.
 - The Temas row opens the dialog; Usar switches layout, a chip changes colors,

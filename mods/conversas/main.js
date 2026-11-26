@@ -4,8 +4,8 @@
 // (tui/ no repositório herdr-mods) também usa.
 
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
-import { exec, spaces, panes, run, theme, notify, checking, appHome, window } from "herdr";
+import { v_flex, h_flex, ScrollHandle } from "gpui-base";
+import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay } from "herdr";
 
 // Mesmo main.js no Windows e no Linux: só o Python muda.
 const WINDOWS = () => window()?.platform === "windows";
@@ -39,8 +39,19 @@ function retomar(c) {
   else run("space.new", { folder: c.cwd, argv });
 }
 
+// Hora de um timestamp ISO das falas, no mesmo formato da lista.
+const quandoIso = (iso) => { const ms = Date.parse(iso); return Number.isNaN(ms) ? "" : quando(ms / 1000); };
+
 export default class Conversas extends View {
   init(_props, cx) {
+    // Aberto pelo ícone de uma conversa: o modal com as últimas falas dela.
+    if (props()?.conversa) {
+      this.falas = null;
+      this.erro = null;
+      this.rolagem = ScrollHandle.new();
+      if (!checking()) this.lerFalas(cx);
+      return;
+    }
     this.grupos = [];
     this.erro = null;
     // Pastas recolhidas e página de cada pasta: ficam guardadas entre aberturas.
@@ -80,6 +91,55 @@ export default class Conversas extends View {
     });
   }
 
+  lerFalas(cx) {
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec(PYTHON(), [SCRIPT(), "--ultimas", props().conversa.id], { timeout: 30000 });
+        if (r.code !== 0) throw new Error(r.stderr.trim() || `saiu com ${r.code}`);
+        this.falas = JSON.parse(r.stdout);
+        // Abre no fim, que é a parte mais recente.
+        if (this.falas.length) this.rolagem.scroll_to_item(this.falas.length - 1);
+      } catch (e) {
+        this.erro = String(e?.message ?? e);
+      }
+      cx.notify();
+    });
+  }
+
+  modal(t) {
+    const c = props().conversa;
+    const fala = (f, i) => v_flex()
+      .id(`fl-${i}`)
+      .gap(4)
+      .p(10)
+      .rounded(8)
+      .border_1()
+      .border_color(t.border)
+      .bg(f.papel === "user" ? t.raised : t.background)
+      .child(h_flex().gap(6).items_center().text_size(11)
+        .child(div().font_semibold().text_color(f.papel === "user" ? t.accent : t.foreground).child(f.papel === "user" ? "Você" : "Claude"))
+        .child(div().text_color(t.dim).child(quandoIso(f.quando))))
+      .child(div().text_size(12.5).whitespace_normal().text_color(t.foreground).child(f.texto));
+    const aviso = (texto, cor) => div().p(14).text_size(12).text_color(cor).child(texto);
+    return v_flex()
+      .id("cv-modal")
+      .size_full()
+      .min_h(0)
+      .bg(t.popover)
+      .text_color(t.foreground)
+      .child(h_flex().px(18).pt(14).pb(10).gap(10).items_center().border_b(1).border_color(t.border)
+        .child(v_flex().flex_1().min_w(0).gap(2)
+          .child(div().truncate().text_size(14).font_semibold().child(c.titulo))
+          .child(div().truncate().text_size(11).text_color(t.dim).child(`${c.pasta} · ${c.id}`)))
+        .child(div().text_size(11).text_color(t.dim).child("Esc"))
+        .child(this.acao(t, "cv-modal-fechar", "Fechar", "mods/workspace-chrome/x.svg", () => closeOverlay(props().overlay))))
+      .when(Boolean(this.erro), (el) => el.child(aviso(this.erro, t.blocked)))
+      .when(!this.erro && !this.falas, (el) => el.child(aviso("Lendo a conversa…", t.dim)))
+      .when(!this.erro && this.falas?.length === 0, (el) => el.child(aviso("Nenhuma fala de texto nesta conversa.", t.dim)))
+      .child(v_flex().id("cv-falas").flex_1().min_h(0).p(14).gap(8).overflow_y_scrollbar().track_scroll(this.rolagem)
+        .children((this.falas ?? []).map(fala)));
+  }
+
   acao(t, id, dica, icone, fazer) {
     return div().id(id).size(22).flex().items_center().justify_center().rounded(5).text_color(t.dim).cursor_pointer()
       .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(dica)
@@ -88,6 +148,18 @@ export default class Conversas extends View {
 
   render(cx) {
     const t = theme();
+    if (props()?.conversa) return this.modal(t);
+    // Ícone que abre o modal das últimas falas, sem retomar a conversa.
+    const ver = (c) => div().id(`cvv-${c.id}`).size(20).flex_none().flex().items_center().justify_center().rounded(5)
+      .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.background).text_color(t.foreground))
+      .tooltip("Ver as últimas falas")
+      .on_mouse_down("right", (_e, cx) => cx.stop_propagation())
+      .on_click((_e, cx) => {
+        cx.stop_propagation();
+        openOverlay({ mod: "conversas", kind: "dialog", width: 720, height: 620, // Só o nome da pasta: as props do overlay perdem as barras invertidas do caminho.
+          props: { conversa: { id: c.id, titulo: c.titulo, pasta: nome(c.cwd) } } });
+      })
+      .child(svg("mods/workspace-chrome/file-text.svg").size(13));
     const linha = (c) =>
       v_flex()
         .id(`cv-${c.id}`)
@@ -107,6 +179,7 @@ export default class Conversas extends View {
         })
         .child(h_flex().gap(6).items_center()
           .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(c.titulo))
+          .child(ver(c))
           .child(div().flex_none().text_size(11).text_color(t.dim).child(quando(c.quando))))
         .child(div().text_size(10.5).truncate().text_color(t.dim).child(c.id));
 
