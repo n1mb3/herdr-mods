@@ -97,7 +97,9 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
 ## Built from
 
 - **The layout file** (`layouts/main-conversas.json`): a clone of `main` with
-  `"titlebar": "none"` and `"terminal_menu": "menu-split"`. The sidebar's
+  `"titlebar": "none"` and `"terminal_menu": "menu-split"`, and the pane
+  `focus` border in the `border` color instead of `accent`, so a focused
+  terminal has no blue outline. The sidebar's
   `brand` and `sidebar-footer` blocks show `chrome-temas` (the footer with
   `props: { footer: true }`, `size: { px: 97 }`); the `tabs` block shows
   `tabs-conversas`; `spaces` and `agents` show `spaces-icones` and
