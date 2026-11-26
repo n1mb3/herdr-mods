@@ -8,7 +8,8 @@ import { v_flex, h_flex, ScrollHandle, InputState, Input } from "gpui-base";
 import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay, machines, shared, readTextFile } from "herdr";
 
 // Mesmo main.js no Windows e no Linux: só o Python muda.
-const WINDOWS = () => window()?.platform === "windows";
+// window() é null antes da janela existir (na abertura do app): a pasta do app com letra de unidade também indica Windows.
+const WINDOWS = () => window()?.platform === "windows" || /^[A-Za-z]:[\\/]/.test(appHome());
 const SCRIPT = () => `${appHome()}/mods/conversas/conversas.py`;
 const PYTHON = () => (WINDOWS() ? "python" : "python3");
 
