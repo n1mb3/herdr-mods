@@ -152,16 +152,41 @@ def texto_da_mensagem(d: dict) -> str:
     return "" if texto.startswith("<") else texto
 
 
+def arquivo_da_conversa(id_: str) -> "str | None":
+    raiz = pasta_projetos()
+    try:
+        return next((c for c in (os.path.join(raiz, p, id_ + ".jsonl") for p in os.listdir(raiz)) if os.path.isfile(c)), None)
+    except OSError:
+        return None
+
+
+def renomear(id_: str, titulo: str) -> bool:
+    """Grava o nome como o /rename do Claude Code: uma linha custom-title no fim do .jsonl (vale a última)."""
+    titulo = " ".join(titulo.split())
+    caminho = arquivo_da_conversa(id_)
+    if not titulo or not caminho:
+        return False
+    linha = json.dumps({"type": "custom-title", "customTitle": titulo, "sessionId": id_}, ensure_ascii=False, separators=(",", ":"))
+    with open(caminho, "rb+") as f:
+        # Sem quebra no fim, a linha nova colaria na última.
+        fim = f.seek(0, os.SEEK_END)
+        if fim:
+            f.seek(fim - 1)
+            quebra = f.read(1) != b"\n"
+        else:
+            quebra = False
+        f.write((b"\n" if quebra else b"") + linha.encode("utf-8") + b"\n")
+    return True
+
+
 def ultimas(id_: str, quantas: int = 12, corte: int = 1500) -> list:
     """As últimas `quantas` falas da conversa `id_`, da mais antiga para a mais nova.
 
     Lê o .jsonl de trás para frente em blocos: o arquivo chega a dezenas de MB, e as
     linhas de api-request-blob ocupam quase tudo. Falas seguidas do mesmo papel viram uma.
     """
-    raiz = pasta_projetos()
-    try:
-        caminho = next(c for c in (os.path.join(raiz, p, id_ + ".jsonl") for p in os.listdir(raiz)) if os.path.isfile(c))
-    except (OSError, StopIteration):
+    caminho = arquivo_da_conversa(id_)
+    if not caminho:
         return []
     falas, sobra, BLOCO, MAX = [], b"", 1 << 21, 64 << 20
     with open(caminho, "rb") as f:
@@ -462,4 +487,7 @@ if __name__ == "__main__":
     if "--ultimas" in sys.argv:  # as últimas falas de uma conversa, para o modal do painel
         print(json.dumps(ultimas(sys.argv[sys.argv.index("--ultimas") + 1])))
         sys.exit(0)
+    if "--renomear" in sys.argv:  # o lápis do painel: --renomear <id> <nome>
+        i = sys.argv.index("--renomear")
+        sys.exit(0 if renomear(sys.argv[i + 1], sys.argv[i + 2]) else 1)
     sys.exit(main())

@@ -4,7 +4,7 @@
 // (tui/ no repositório herdr-mods) também usa.
 
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, ScrollHandle } from "gpui-base";
+import { v_flex, h_flex, ScrollHandle, InputState, Input } from "gpui-base";
 import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay } from "herdr";
 
 // Mesmo main.js no Windows e no Linux: só o Python muda.
@@ -54,6 +54,11 @@ export default class Conversas extends View {
     }
     this.grupos = [];
     this.erro = null;
+    // Um campo só, para a conversa cujo nome está sendo editado pelo lápis (this.editando = id).
+    this.editando = null;
+    this.nome = InputState.new({ placeholder: "Nome da conversa" });
+    this.nome.on("submit", (_e, cx) => this.renomear(cx));
+    this.nome.on("blur", (_e, cx) => { if (this.editando) { this.editando = null; cx.notify(); } });
     // Pastas recolhidas e página de cada pasta: ficam guardadas entre aberturas.
     let estado = {};
     try { estado = JSON.parse(localStorage.getItem("estado") ?? "{}") ?? {}; } catch { estado = {}; }
@@ -88,6 +93,32 @@ export default class Conversas extends View {
       }
       this.carregando = false;
       cx.notify();
+    });
+  }
+
+  editar(c) {
+    this.editando = c.id;
+    this.nome.set_value(c.titulo);
+    this.nome.set_selected_range({ start: 0, end: c.titulo.length });
+    this.nome.focus();
+  }
+
+  // Grava como o /rename do Claude Code; a lista mostra o nome novo na hora e relê em seguida.
+  renomear(cx) {
+    const id = this.editando, novo = this.nome.value().trim();
+    this.editando = null;
+    const c = this.grupos.flatMap((g) => g.conversas).find((x) => x.id === id);
+    if (!c || !novo || novo === c.titulo) return cx.notify();
+    const antigo = c.titulo;
+    c.titulo = novo;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const r = await exec(PYTHON(), [SCRIPT(), "--renomear", id, novo], { timeout: 30000 });
+      if (r.code !== 0) {
+        c.titulo = antigo;
+        notify({ title: "Não deu para renomear", body: r.stderr.trim() || "Conversa não encontrada.", level: "error", timeout: 5000 });
+        cx.notify();
+      } else this.carregar(cx);
     });
   }
 
@@ -160,6 +191,17 @@ export default class Conversas extends View {
           props: { conversa: { id: c.id, titulo: c.titulo, pasta: nome(c.cwd) } } });
       })
       .child(svg("mods/workspace-chrome/file-text.svg").size(13));
+    // Lápis: troca o título por um campo; Enter grava, Esc ou clicar fora desiste.
+    const lapis = (c) => div().id(`cve-${c.id}`).size(20).flex_none().flex().items_center().justify_center().rounded(5)
+      .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.background).text_color(t.foreground))
+      .tooltip("Renomear")
+      .on_mouse_down("right", (_e, cx) => cx.stop_propagation())
+      .on_click((_e, cx) => { cx.stop_propagation(); this.editar(c); cx.notify(); })
+      .child(svg("mods/workspace-chrome/square-pen.svg").size(13));
+    const campo = () => div().flex_1().min_w(0)
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_key_down((e, cx) => { if (e.key === "escape") { this.editando = null; cx.stop_propagation(); cx.notify(); } })
+      .child(Input.new(this.nome).h(24).px(6).rounded(5).border_1().border_color(t.accent).bg(t.background).text_size(13));
     const linha = (c) =>
       v_flex()
         .id(`cv-${c.id}`)
@@ -170,15 +212,20 @@ export default class Conversas extends View {
         .rounded(8)
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
-        .tooltip(`Clique: retomar · botão direito: copiar\n${COMANDO(c.id)}`)
-        .on_click(() => retomar(c))
+        // Editando o nome, a linha não retoma a conversa nem mostra a dica.
+        .when(this.editando !== c.id, (el) => el
+          .tooltip(`Clique: retomar · botão direito: copiar\n${COMANDO(c.id)}`)
+          .on_click(() => retomar(c)))
         .on_mouse_down("right", (_e, cx) => {
           cx.stop_propagation();
           cx.write_to_clipboard(COMANDO(c.id));
           notify({ title: "Comando copiado", body: COMANDO(c.id), level: "info", timeout: 3000 });
         })
         .child(h_flex().gap(6).items_center()
-          .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(c.titulo))
+          .when(this.editando === c.id, (el) => el.child(campo()))
+          .when(this.editando !== c.id, (el) => el
+            .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(c.titulo))
+            .child(lapis(c)))
           .child(ver(c))
           .child(div().flex_none().text_size(11).text_color(t.dim).child(quando(c.quando))))
         .child(div().text_size(10.5).truncate().text_color(t.dim).child(c.id));
