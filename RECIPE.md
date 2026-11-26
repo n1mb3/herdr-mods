@@ -51,8 +51,9 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
      GitHub repo or a theme `.json` URL, and Conferir.
    - Footer: Voltar ao padrão and a status line.
 5. **Icons on the collapsed sidebar**: on the 44px rail each space shows its
-   18px colored avatar (the letter or emoji of the expanded list) with its
-   status glyph, and each agent shows its program icon with its status (spinner,
+   18px colored avatar (the letter or emoji of the expanded list), centered,
+   with an 8px dot on its top right corner only when the space needs you
+   (blocked or done), and each agent shows its program icon with its status (spinner,
    ring, dot, !), with no name or time. Hovering shows the name.
 
 ## How it behaves

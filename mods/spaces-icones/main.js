@@ -533,11 +533,12 @@ export default class Spaces extends View {
       .items_center()
       .when(w.active, (el) => el.bg(t.selected))
       .when(!w.active, (el) => el.hover((s) => s.bg(t.hover)))
-      .gap(1)
       .on_click(() => run("space.select", { id: w.id }))
       .tooltip(w.name)
-      .child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child(spaceAvatar(w.name)))
-      .child(div().w(6).flex_none().text_color(tone(t, w.status)).child(glyph(w.status))));
+      // Avatar sozinho e centrado; o "·" de sempre sai, e o "●" de quando o espaço
+      // precisa de você vira uma bolinha no canto do avatar.
+      .child(h_flex().relative().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child(spaceAvatar(w.name))
+        .when(glyph(w.status) === "●", (el) => el.child(div().absolute().top(-3).right(-3).size(8).rounded(4).border_1().border_color(t.chrome).bg(tone(t, w.status))))));
   }
 
   render() {
