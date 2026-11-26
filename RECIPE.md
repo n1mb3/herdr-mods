@@ -24,7 +24,8 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
      (chevron right) and ↻ (refresh, "…" while loading).
    - One band per folder, 30px, raised background, 1px border, 7px radius:
      a folder icon in the accent color, the folder's name in semibold 12.5px,
-     then `‹ 1/3 ›` when it has more than one page, the folder's conversation
+     then `‹ 1/3 ›` when it has more than one page, the folder's size on disk
+     in 10.5px dim text (`7,2 MB`, `531 MB`, `1,4 GB`), the conversation
      count and a chevron (down open, right closed). Hovering shows the full path.
    - Under an open band, two conversations per page: the title on the left, the
      time on the right (`12:34` today, `16/11` before), a 20px pencil
@@ -93,7 +94,9 @@ Herdr's `main` layout (0.1.16), unchanged except for five things:
   `~/.claude/projects/<folder>/<id>.jsonl` (or `$CLAUDE_CONFIG_DIR/projects`):
   the file name is the ID, the title is the session's `customTitle` (else its
   `aiTitle`, else the first prompt), the folder is the first user
-  message's `cwd`, the time is the file's mtime. It caches each file by mtime
+  message's `cwd`, the time is the file's mtime. Each group's `tamanho` is the
+  bytes of every file under its project folder, subfolders included (one
+  `os.walk` per refresh, about 0.04 s for 1.4 GB). It caches each file by mtime
   and size in the temp folder. Without `--listar` it is a terminal popup.
   `--ultimas <id>` prints the last 12 text turns of one conversation (tool
   calls, results and thinking left out; consecutive lines of one role merged;

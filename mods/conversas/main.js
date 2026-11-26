@@ -18,6 +18,11 @@ const LIMITE = 50;      // conversas por pasta pedidas ao coletor (as mais recen
 
 const norm = (p) => (p ?? "").replace(/[\\/]+$/, "").replace(/\//g, "\\").toLowerCase();
 const nome = (p) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
+// Bytes em KB, MB ou GB, com vírgula: "531 MB", "7,2 MB", "1,4 GB".
+function tamanho(b) {
+  const [n, u] = b >= 1e9 ? [b / 1e9, "GB"] : b >= 1e6 ? [b / 1e6, "MB"] : [b / 1e3, "KB"];
+  return `${(n >= 100 ? Math.round(n) : Math.round(n * 10) / 10).toString().replace(".", ",")} ${u}`;
+}
 // Pesquisa sem caixa nem acento: "acao" acha "Ação".
 const plano = (s) => (s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
@@ -291,6 +296,8 @@ export default class Conversas extends View {
             .child(seta(`cp-${g.cwd}`, "‹", -1, pagina > 0))
             .child(div().text_color(t.muted).child(`${pagina + 1}/${total}`))
             .child(seta(`cn-${g.cwd}`, "›", 1, pagina < total - 1))))
+          // Tamanho em disco da pasta do projeto em ~/.claude/projects (conversas, subagentes, anexos).
+          .when(g.tamanho > 0, (el) => el.child(div().flex_none().text_size(10.5).font_normal().text_color(t.dim).child(tamanho(g.tamanho))))
           .child(div().flex_none().text_size(10.5).font_medium().text_color(t.muted).child(String(g.conversas.length)))
           .child(svg(`mods/workspace-chrome/chevron-${aberto ? "down" : "right"}.svg`).size(11).flex_none().text_color(t.dim)),
         ...(aberto ? (filtrando ? g.conversas : g.conversas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA)).map(linha) : []),

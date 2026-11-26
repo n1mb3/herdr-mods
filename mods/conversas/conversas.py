@@ -96,6 +96,18 @@ def gravar_cache(cache: dict) -> None:
         pass  # sem cache só fica mais lento
 
 
+def tamanho_em_disco(pasta: str) -> int:
+    """Bytes da pasta do projeto inteira: os .jsonl e as subpastas de cada conversa (subagentes, anexos)."""
+    total = 0
+    for raiz, _, arquivos in os.walk(pasta):
+        for a in arquivos:
+            try:
+                total += os.stat(os.path.join(raiz, a)).st_size
+            except OSError:
+                pass
+    return total
+
+
 def coletar(limite: int = LIMITE) -> list:
     """[{cwd, conversas: [...]}], pastas da conversa mais recente para a mais antiga."""
     raiz = pasta_projetos()
@@ -127,7 +139,9 @@ def coletar(limite: int = LIMITE) -> list:
             if len(achadas) == limite:
                 break
         for c in achadas:
-            grupos.setdefault(normalizar(c["cwd"]), {"cwd": c["cwd"], "conversas": []})["conversas"].append(c)
+            grupos.setdefault(normalizar(c["cwd"]), {"cwd": c["cwd"], "conversas": [], "tamanho": 0})["conversas"].append(c)
+        if achadas:
+            grupos[normalizar(achadas[0]["cwd"])]["tamanho"] += tamanho_em_disco(pasta)
     lista = list(grupos.values())
     for g in lista:
         g["conversas"].sort(key=lambda c: c["quando"], reverse=True)
