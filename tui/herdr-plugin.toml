@@ -18,11 +18,31 @@ title = "Conversas do Claude"
 placement = "popup"
 width = "90%"
 height = "80%"
+platforms = ["macos", "linux"]
 # O script mora no mod do herdr-app, que é quem a galeria do herdr.dev copia.
 command = ["python3", "../mods/conversas/conversas.py"]
+
+# No Windows o Python instalado se chama python, não python3. O herdr não aceita id repetido,
+# nem com platforms diferentes: os itens do Windows têm id próprio (abrir.py escolhe o painel).
+[[panes]]
+id = "lista-windows"
+title = "Conversas do Claude"
+placement = "popup"
+width = "90%"
+height = "80%"
+platforms = ["windows"]
+command = ["python", "../mods/conversas/conversas.py"]
 
 [[actions]]
 id = "abrir"
 title = "Open Claude conversations"
 contexts = ["global", "workspace", "tab", "pane"]
+platforms = ["macos", "linux"]
 command = ["python3", "abrir.py"]
+
+[[actions]]
+id = "abrir-windows"
+title = "Open Claude conversations"
+contexts = ["global", "workspace", "tab", "pane"]
+platforms = ["windows"]
+command = ["python", "abrir.py"]

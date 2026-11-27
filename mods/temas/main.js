@@ -9,7 +9,9 @@ import { exec, run, theme, layouts, shared, props, closeOverlay, appHome, window
 const DO_HERDR = { layouts: ["main", "terminals", "win98"], temas: ["graphite", "ink", "moss", "paper", "atom-one-dark"] };
 // Padrão = o seu layout do dia a dia (com Conversas) e as cores de fábrica do Herdr.
 const PADRAO_LAYOUT = () => (layouts().includes("main-conversas") ? "main-conversas" : "main");
-const PYTHON = () => (window()?.platform === "windows" ? "python" : "python3");
+// window() é null antes da janela existir (na abertura do app): a pasta do app com letra de unidade também indica Windows.
+const WINDOWS = () => window()?.platform === "windows" || /^[A-Za-z]:[\\/]/.test(appHome());
+const PYTHON = () => (WINDOWS() ? "python" : "python3");
 const SCRIPT = () => `${appHome()}/mods/temas/temas.py`;
 
 async function motor(...args) {

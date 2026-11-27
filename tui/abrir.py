@@ -10,6 +10,8 @@ import sys
 herdr = os.environ.get("HERDR_BIN_PATH") or shutil.which("herdr")
 if not herdr:
     sys.exit("herdr não encontrado (defina HERDR_BIN_PATH)")
+# No Windows o painel roda "python", e não "python3": é outro item do manifest.
+painel = "lista-windows" if os.name == "nt" else "lista"
 sys.exit(subprocess.run(
-    [herdr, "plugin", "pane", "open", "--plugin", "herdr-conversas", "--entrypoint", "lista"],
+    [herdr, "plugin", "pane", "open", "--plugin", "herdr-conversas", "--entrypoint", painel],
     creationflags=0x08000000 if os.name == "nt" else 0).returncode)
