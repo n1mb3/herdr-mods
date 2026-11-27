@@ -179,8 +179,13 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
 
 - The Conversas button opens the panel, and each folder with Claude Code
   history shows its newest two conversations with title, time and ID.
-- `‹ ›` pages a folder, Expandir/Recolher todas open and close every band, and
-  both survive closing and reopening Herdr.
+- Folders start closed. `‹ ›` pages a folder (the page survives closing and
+  reopening Herdr); Expandir/Recolher todas open and close every band.
+- Each machine's last list is kept in `localStorage` (`grupos:<machine>`), so
+  the panel and a machine switch show it at once without reading again. There
+  is no timer: besides a machine's first read and ↻, the list rereads itself
+  only when the focused folder itself (not an ancestor such as `D:`) isn't in
+  it, once per focus change.
 - Clicking a conversation opens a tab running `claude … --resume <id>` in its
   folder; right-click copies the command.
 - The page icon opens a 720×620 dialog with that conversation's title, folder
@@ -197,6 +202,14 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
   and renaming all go to that machine; resuming opens the tab in a space of
   that machine on the same folder, else a new space there (`space.new
   {machine}`). A slow answer from the previous machine is dropped.
+- Whenever the focus moves to another space or folder (read on every render,
+  since a hidden panel doesn't render), the panel switches to the machine of
+  the focused space and puts
+  the folder of the focused terminal (`focused().cwd`, else the space folder;
+  the deepest listed folder that contains it) first, the only one open, with
+  the `selected` background and an `accent` border, and scrolls the list to
+  the top. The switch runs on `cx.timer.after(0)`: `cx.spawn` would run it
+  inside render, where `carregar()`'s `cx.notify()` throws.
 - The search field under the header (28px, "Pesquisar por título, pasta ou ID")
   filters on every key: each word, without case or accents, must appear in the
   title, the folder name or the ID. Matching folders open with all their hits
