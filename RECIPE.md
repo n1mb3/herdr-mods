@@ -104,7 +104,7 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
   `props: { footer: true }`, `size: { px: 97 }`); the `tabs` block shows
   `tabs-conversas`; `spaces` and `agents` show `spaces-icones` and
   `agents-icones`; the `panel` column (`px: 368`, hidden at start) holds a
-  `stack` named `panel-body` with three blocks: `files`, `changes` and
+  `stack` named `panel-body` with three blocks: `files-rapido`, `changes` and
   `conversas`. The status bar stays `workspace-status`.
 - **`mods/conversas/`**: the panel. It runs
   `python conversas.py --listar --limite 50` (`python3` off Windows) with
@@ -124,6 +124,11 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
   the line Claude Code's `/rename` writes (the last one wins).
   State lives in `localStorage` key `estado`: `{fechados, paginas}`.
   Commands: `tab.new`, `space.new`; data: `spaces()`, `panes()`.
+- **`mods/files-rapido/`**: a clone of the shipped `files` (0.1.18) whose
+  Windows listing runs `cmd /d /c "chcp 65001>nul & cmd /d /c dir /b /a:d … & echo : & dir /b /a:-d …"`
+  with the folder as `cwd`, about 0.15 s instead of 2 s for a PowerShell per
+  folder. The inner `cmd` starts after `chcp`, so names come out in UTF-8;
+  without the `:` line it falls back to the shipped PowerShell listing.
 - **`mods/tabs-conversas/`**: a clone of the shipped `tabs` that always adds
   `conversas` to the panel buttons, with its own copies of the window icons.
   It also listens on `nextCommand()` for `colar`, Ctrl+V's Windows fix (it
@@ -190,7 +195,11 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
   folder; right-click copies the command.
 - The page icon opens a 720×620 dialog with that conversation's title, folder
   and ID, and its last turns (Você on a raised card, Claude on the plain one,
-  each with its time), scrolled to the newest. Esc or × closes it.
+  each with its time), scrolled to the newest. A button in its header,
+  "↓ Mais antigas primeiro" or "↑ Mais novas primeiro", flips the order (newest
+  on top, scrolled to the top); the choice lives in shared
+  `conversas.falasInvertidas` and holds for every dialog until flipped again.
+  Esc or × closes it.
 - With more than one machine in Herdr (`machines()`), a row of 26px buttons
   over the search field, one per machine (monitor icon for this one, server
   for the others, named like `spaces-icones`: `machine.names`, else the
