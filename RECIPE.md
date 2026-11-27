@@ -29,7 +29,8 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
      count and a chevron (down open, right closed). Hovering shows the full path.
    - Under an open band, two conversations per page: the title on the left, the
      time on the right (`12:34` today, `16/11` before), a 20px pencil
-     (`square-pen.svg`) and a 20px page icon (`file-text.svg`) before the time,
+     (`square-pen.svg`), a 20px page icon (`file-text.svg`) and a 20px folder
+     icon (`folder.svg`) before the time,
      and the conversation ID
      under it in 10.5px dim text.
    - Folders are ordered by their newest conversation.
@@ -224,6 +225,13 @@ Herdr's `main` layout (0.1.16), unchanged except for seven things:
   title, the folder name or the ID. Matching folders open with all their hits
   and no pages, the count shows the hits, Esc clears it. It searches what was
   loaded, the 50 newest conversations of each folder.
+- The folder icon shows the conversation's `.jsonl` (its path comes as
+  `arquivo` in `--listar`, outside the cache) in the file manager:
+  `explorer /select,<file>` on Windows (it exits 1 even when it opens),
+  `open -R` on macOS, `xdg-open <folder>` on Linux. For another machine's
+  conversations it copies the path instead, since a window would open on
+  that machine's screen. A list cached before `arquivo` existed rereads on
+  the first click.
 - The pencil swaps the title for a field with the name selected; Enter saves
   it (the row shows it at once and goes back if the write fails), Esc or a
   click elsewhere gives up. While editing, a click on the row doesn't resume.

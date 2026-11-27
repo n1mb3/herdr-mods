@@ -4,7 +4,7 @@ Mods para o [Herdr](https://herdr.dev), no app desktop (herdr-app) e no herdr de
 
 | Peça | Onde | O que faz |
 |---|---|---|
-| `mods/conversas` | herdr-app | Painel **Conversas** à direita, junto de Files e Changes: as 2 últimas conversas do Claude Code de cada pasta, com título, hora e ID, e o tamanho em disco de cada pasta. Clique retoma a conversa; botão direito copia o comando; o ícone de página abre um modal com as últimas falas, com um botão que inverte a ordem (a escolha vale para todos os modais); o lápis renomeia a conversa; o campo do topo pesquisa por título, pasta ou ID; com mais de um computador no Herdr, botões trocam para as conversas do outro. |
+| `mods/conversas` | herdr-app | Painel **Conversas** à direita, junto de Files e Changes: as 2 últimas conversas do Claude Code de cada pasta, com título, hora e ID, e o tamanho em disco de cada pasta. Clique retoma a conversa; botão direito copia o comando; o ícone de página abre um modal com as últimas falas, com um botão que inverte a ordem (a escolha vale para todos os modais); o lápis renomeia a conversa; o ícone de pasta abre a pasta do `.jsonl` da conversa no gerenciador de arquivos, com o arquivo selecionado (noutra máquina, copia o caminho); o campo do topo pesquisa por título, pasta ou ID; com mais de um computador no Herdr, botões trocam para as conversas do outro. |
 | `mods/tabs-conversas` | herdr-app | Clone da barra de abas do Herdr com o botão **Conversas** ao lado de Files e Changes. |
 | `mods/menu-split` | herdr-app | Clone do menu de botão direito do terminal com um direcional de split (↑ ← → ↓), como num controle. |
 | `mods/temas` | herdr-app | Janela **Temas**: usa, instala (de herdr.dev, GitHub ou um tema `.json`) e apaga layouts e temas de cor, e volta ao padrão. |

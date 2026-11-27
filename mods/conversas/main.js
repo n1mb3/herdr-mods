@@ -192,6 +192,26 @@ export default class Conversas extends View {
     });
   }
 
+  // O .jsonl da conversa: neste computador abre o gerenciador de arquivos com ele selecionado;
+  // noutra máquina a janela abriria na tela de lá, então copia o caminho.
+  mostrarArquivo(c, cx) {
+    // Lista guardada de antes do caminho existir (o cache grupos:<máquina>): relê.
+    if (!c.arquivo) {
+      notify({ title: "Atualizando a lista", body: "Clique de novo em seguida.", level: "info", timeout: 3000 });
+      return this.carregar(cx);
+    }
+    if (this.maquina) {
+      cx.write_to_clipboard(c.arquivo);
+      return notify({ title: "Caminho copiado", body: c.arquivo, level: "info", timeout: 3000 });
+    }
+    const pasta = c.arquivo.replace(/[\\/][^\\/]*$/, "");
+    // O explorer devolve código 1 mesmo quando abre: o resultado não diz nada.
+    const abrir = WINDOWS() ? exec("explorer", [`/select,${c.arquivo}`])
+      : window()?.platform === "macos" ? exec("open", ["-R", c.arquivo])
+      : exec("xdg-open", [pasta]);
+    abrir.catch((e) => notify({ title: "Não deu para abrir a pasta", body: String(e?.message ?? e), level: "error", timeout: 5000 }));
+  }
+
   lerFalas(cx) {
     cx.spawn(async (cx) => {
       try {
@@ -287,6 +307,13 @@ export default class Conversas extends View {
           props: { conversa: { id: c.id, titulo: c.titulo, pasta: nome(c.cwd), maquina: this.maquina } } });
       })
       .child(svg("mods/workspace-chrome/file-text.svg").size(13));
+    // Pasta: abre a pasta do .jsonl da conversa no gerenciador de arquivos, com o arquivo selecionado.
+    const pasta = (c) => div().id(`cvp-${c.id}`).size(20).flex_none().flex().items_center().justify_center().rounded(5)
+      .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.background).text_color(t.foreground))
+      .tooltip(this.maquina ? "Copiar o caminho do arquivo da conversa" : "Abrir a pasta do arquivo da conversa")
+      .on_mouse_down("right", (_e, cx) => cx.stop_propagation())
+      .on_click((_e, cx) => { cx.stop_propagation(); this.mostrarArquivo(c, cx); })
+      .child(svg("mods/workspace-chrome/folder.svg").size(13));
     // Lápis: troca o título por um campo; Enter grava, Esc ou clicar fora desiste.
     const lapis = (c) => div().id(`cve-${c.id}`).size(20).flex_none().flex().items_center().justify_center().rounded(5)
       .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.background).text_color(t.foreground))
@@ -323,6 +350,7 @@ export default class Conversas extends View {
             .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(c.titulo))
             .child(lapis(c)))
           .child(ver(c))
+          .child(pasta(c))
           .child(div().flex_none().text_size(11).text_color(t.dim).child(quando(c.quando))))
         .child(div().text_size(10.5).truncate().text_color(t.dim).child(c.id));
 

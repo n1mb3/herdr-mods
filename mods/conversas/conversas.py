@@ -135,7 +135,8 @@ def coletar(limite: int = LIMITE) -> list:
             conversa = guardado["dados"] if guardado and guardado["marca"] == marca else ler_conversa(arq)
             novo[arq] = {"marca": marca, "dados": conversa}
             if conversa:
-                achadas.append(conversa)
+                # O caminho do .jsonl vai junto (para o ícone de pasta do painel), fora do cache.
+                achadas.append({**conversa, "arquivo": arq})
             if len(achadas) == limite:
                 break
         for c in achadas:
