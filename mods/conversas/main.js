@@ -5,7 +5,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle, InputState, Input } from "gpui-base";
-import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay, machines, shared, readTextFile } from "herdr";
+import { exec, spaces, panes, run, theme, notify, checking, appHome, window, props, openOverlay, closeOverlay, machines, shared, setShared, readTextFile } from "herdr";
 
 // Mesmo main.js no Windows e no Linux: só o Python muda.
 const WINDOWS = () => window()?.platform === "windows";
@@ -76,6 +76,9 @@ export default class Conversas extends View {
       this.falas = null;
       this.erro = null;
       this.rolagem = ScrollHandle.new();
+      // Ordem das falas: vale para todos os modais até ser trocada de novo. Fica no shared
+      // porque cada modal aberto ganha um localStorage próprio (data/conversas/store-<hash>.json).
+      this.invertido = shared("conversas.falasInvertidas") === true;
       if (!checking()) this.lerFalas(cx);
       return;
     }
@@ -176,13 +179,23 @@ export default class Conversas extends View {
         const r = await rodar(["--ultimas", props().conversa.id], props().conversa.maquina ?? null, 30000);
         if (r.code !== 0) throw new Error(r.stderr.trim() || `saiu com ${r.code}`);
         this.falas = JSON.parse(r.stdout);
-        // Abre no fim, que é a parte mais recente.
-        if (this.falas.length) this.rolagem.scroll_to_item(this.falas.length - 1);
+        this.rolar();
       } catch (e) {
         this.erro = String(e?.message ?? e);
       }
       cx.notify();
     });
+  }
+
+  // Abre na parte mais recente: no topo com a ordem invertida, no fim com a normal.
+  rolar() {
+    if (this.falas?.length) this.rolagem.scroll_to_item(this.invertido ? 0 : this.falas.length - 1);
+  }
+
+  inverter() {
+    this.invertido = !this.invertido;
+    setShared("conversas.falasInvertidas", this.invertido);
+    this.rolar();
   }
 
   modal(t) {
@@ -210,13 +223,18 @@ export default class Conversas extends View {
         .child(v_flex().flex_1().min_w(0).gap(2)
           .child(div().truncate().text_size(14).font_semibold().child(c.titulo))
           .child(div().truncate().text_size(11).text_color(t.dim).child(`${c.maquina ? `${nomeMaquina(c.maquina)} · ` : ""}${c.pasta} · ${c.id}`)))
+        .child(div().id("cv-modal-ordem").h(22).px(8).flex().items_center().rounded(5).border_1().border_color(t.border)
+          .text_size(11).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+          .tooltip("Inverter a ordem das falas")
+          .on_click((_e, cx) => { this.inverter(); cx.notify(); })
+          .child(this.invertido ? "↑ Mais novas primeiro" : "↓ Mais antigas primeiro"))
         .child(div().text_size(11).text_color(t.dim).child("Esc"))
         .child(this.acao(t, "cv-modal-fechar", "Fechar", "mods/workspace-chrome/x.svg", () => closeOverlay(props().overlay))))
       .when(Boolean(this.erro), (el) => el.child(aviso(this.erro, t.blocked)))
       .when(!this.erro && !this.falas, (el) => el.child(aviso("Lendo a conversa…", t.dim)))
       .when(!this.erro && this.falas?.length === 0, (el) => el.child(aviso("Nenhuma fala de texto nesta conversa.", t.dim)))
       .child(v_flex().id("cv-falas").flex_1().min_h(0).p(14).gap(8).overflow_y_scrollbar().track_scroll(this.rolagem)
-        .children((this.falas ?? []).map(fala)));
+        .children((this.invertido ? [...(this.falas ?? [])].reverse() : this.falas ?? []).map(fala)));
   }
 
   acao(t, id, dica, icone, fazer) {
