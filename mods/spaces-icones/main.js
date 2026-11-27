@@ -1,7 +1,7 @@
 // Clone do spaces do Herdr 0.1.18: na barra minimizada, o avatar do espaço no lugar do número.
 // Workspace spaces: stable colored avatars, worktrees under their checkout,
 // grouped by machine when more than one is known. After a space's name, the repo
-// its first terminal is in now, only where unusual: branch, ahead/behind. Agent state lives in the agents list, not here. Click to
+// its first terminal is in now: branch (master and main too), ahead/behind. Agent state lives in the agents list, not here. Click to
 // switch, right-click for its menu, drag to reorder.
 
 import { View, div, svg } from "gpui-kit";
@@ -483,9 +483,9 @@ export default class Spaces extends View {
     });
   }
 
-  // Only what's unusual, after the name: "herdr \u00b7 spike \u21912 \u21931". The repo or
-  // branch goes when the name already says it (a worktree is named after its branch),
-  // and master/main go: nearly every space is on one. When the row is full, it
+  // After the name: "herdr \u00b7 spike \u21912 \u21931". The repo or branch goes when the
+  // name already says it (a worktree is named after its branch); master and main show
+  // like any other branch, so every repo space says where it is. When the row is full, it
   // and the name both start from their text's width and give way in proportion.
   gitTail(g, tree, name, t) {
     const raw = g.branch ?? "detached";
@@ -496,7 +496,7 @@ export default class Spaces extends View {
       const text = a.toLowerCase();
       return text === fullName || text === label;
     };
-    const branch = same(raw) || raw === "master" || raw === "main" ? "" : raw;
+    const branch = same(raw) ? "" : raw;
     const repo = tree || same(g.name) ? "" : g.name;
     const where = [repo, branch].filter(Boolean).join(" \u00b7 ");
     return h_flex()
